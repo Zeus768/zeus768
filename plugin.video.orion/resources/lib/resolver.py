@@ -29,17 +29,30 @@ def get_active_debrid():
     
     # Find first enabled and authorized service
     for key, cls in services:
-        if ADDON.getSetting(f'{key}_enabled') == 'true':
+        enabled_setting = ADDON.getSetting(f'{key}_enabled')
+        xbmc.log(f"Debrid {key}_enabled = '{enabled_setting}'", xbmc.LOGINFO)
+        
+        # Check if enabled (default to true for RD, false for others)
+        is_enabled = enabled_setting.lower() == 'true' if enabled_setting else (key == 'rd')
+        
+        if is_enabled:
             service = cls()
+            token = ADDON.getSetting(f'{key}_token')
+            xbmc.log(f"Debrid {key} token exists: {bool(token)}", xbmc.LOGINFO)
+            
             if service.is_authorized():
+                xbmc.log(f"Using debrid service: {key}", xbmc.LOGINFO)
                 return service
     
-    # Fallback: try any authorized service
+    # Fallback: try any authorized service regardless of enabled setting
+    xbmc.log("No enabled service found, trying any authorized...", xbmc.LOGINFO)
     for key, cls in services:
         service = cls()
         if service.is_authorized():
+            xbmc.log(f"Fallback to debrid service: {key}", xbmc.LOGINFO)
             return service
     
+    xbmc.log("No authorized debrid service found!", xbmc.LOGERROR)
     return None
 
 def resolve_magnet(magnet, progress=None):
