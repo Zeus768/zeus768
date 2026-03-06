@@ -1,0 +1,17 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<addon id="repository.zeus768" name="Zeus768 Repository" version="1.0.0" provider-name="zeus768">
+    <extension point="xbmc.addon.repository" name="Zeus768 Repository">
+        <info compressed="false">https://raw.githubusercontent.com/zeus768/zeus768/main/addons.xml</info>
+        <checksum>https://raw.githubusercontent.com/zeus768/zeus768/main/addons.xml.md5</checksum>
+        <datadir zip="true">https://raw.githubusercontent.com/zeus768/zeus768/main/</datadir>
+    </extension>
+    <extension point="xbmc.addon.metadata">
+        <summary>Zeus768 Repository</summary>
+        <description>Official Zeus768 repository for Kodi addons. Home of Orion Media Explorer - the ultimate streaming addon with multi-source support.</description>
+        <platform>all</platform>
+        <assets>
+            <icon>icon.png</icon>
+            <fanart>fanart.jpg</fanart>
+        </assets>
+    </extension>
+</addon>

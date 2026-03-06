@@ -1,0 +1,78 @@
+Orion Media Explorer - Changelog
+=================================
+
+Version 2.3.0 (Streaming Providers)
+-----------------------------------
+- Added "Browse by Streaming Service" section in Movies and TV Shows
+- Supports 20+ streaming providers with official icons:
+  * Netflix, Disney+, Amazon Prime Video, Max (HBO)
+  * Hulu, Paramount+, Apple TV+, Peacock
+  * Crunchyroll, Tubi TV, Pluto TV, Roku Channel
+  * Starz, Showtime, AMC+, BritBox
+  * Kanopy, fuboTV, Freevee, Plex, and more
+- Provider logos fetched from TMDB
+- Region selection (US, UK, CA, AU, DE, FR, ES, IT, JP, KR, BR, MX, IN)
+- Color-coded provider names for easy identification
+- Major providers shown first, others listed below
+
+Version 2.2.0 (Massive Source Expansion)
+----------------------------------------
+- Added Torrentio integration (Stremio addon - massive torrent database)
+- Added MediaFusion integration (Stremio addon - multi-source)
+- Added streaming sites:
+  * FlixMomo (flixmomo.tv)
+  * HydraHD (hydrahd.ru)
+  * Cineby (cineby.gd)
+  * FlickyStream (flickystream.ru)
+  * YFlix (yflix.to)
+  * GoMovies (gomovies.gg)
+  * UTelevision (utelevision.to)
+  * MovieParadise (movieparadise.co)
+- Added RLSBB DDL scraper (supports Rapidgator, NitroFlare, 1Fichier)
+- Enhanced source color coding (Magenta=Torrentio, Purple=MediaFusion, etc.)
+- Added per-source enable/disable settings for all scrapers
+- Improved source filtering options
+
+Version 2.1.0 (Scraper Fix Update)
+----------------------------------
+- Fixed Orionoid API integration with IMDB ID lookup for better results
+- Added YTS scraper for high-quality movie torrents
+- Added EZTV scraper for TV show episodes
+- Added TorrentGalaxy scraper as additional torrent source
+- Updated VidSrc to use active domains (vidsrc.to, vidsrc.pro, vidsrc.cc)
+- Improved VidSrc stream extraction with m3u8 URL detection
+- Enhanced playback handling with inputstream.adaptive support
+- Added per-source enable/disable settings
+- Added Orionoid API key setting for user accounts
+- Fixed torrent links not appearing issue
+- Fixed VidSrc playback failures
+- Better duplicate torrent detection using hash comparison
+- Improved error handling and logging throughout
+
+Version 2.0.0 (Complete Rewrite)
+--------------------------------
+- Complete rewrite for Kodi 21 Omega compatibility
+- Multi-debrid support: Real-Debrid, Premiumize, AllDebrid
+- Trakt.tv integration with watchlist and trending lists
+- QR code pairing for all services
+- TorrentDownloads.pro scraper integration
+- TMDB metadata with full poster/fanart support
+- Quality-based source filtering (4K/1080p/720p/SD)
+- Movie browsing by genre
+- TV Show browsing by genre
+- In Cinema / Now Playing movies
+- Latest TV Episodes
+- Search functionality for movies, TV shows, and actors
+- Actor filmography browsing
+- Auto-play best quality option
+- Debrid service priority setting
+- Cache management
+
+Previous Versions
+-----------------
+Version 1.4.3
+- Fixed tmdb.show_content error
+- Restored icon and fanart assets
+
+Version 1.4.2
+- Initial basic release
