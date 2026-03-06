@@ -7,12 +7,15 @@ Resolves magnet links via debrid services
 import xbmcaddon
 import xbmc
 
-ADDON = xbmcaddon.Addon()
+def get_addon():
+    """Get fresh addon instance to ensure settings are current"""
+    return xbmcaddon.Addon()
 
 def get_active_debrid():
     """Get the active debrid service based on settings"""
     from resources.lib import debrid
     
+    ADDON = get_addon()
     priority = int(ADDON.getSetting('debrid_priority') or 0)
     
     services = [
@@ -30,27 +33,28 @@ def get_active_debrid():
     # Find first enabled and authorized service
     for key, cls in services:
         enabled_setting = ADDON.getSetting(f'{key}_enabled')
-        xbmc.log(f"Debrid {key}_enabled = '{enabled_setting}'", xbmc.LOGINFO)
+        token = ADDON.getSetting(f'{key}_token')
         
-        # Check if enabled (default to true for RD, false for others)
+        xbmc.log(f"Debrid check {key}: enabled='{enabled_setting}', token_len={len(token) if token else 0}", xbmc.LOGINFO)
+        
+        # Check if enabled (default to true for RD)
         is_enabled = enabled_setting.lower() == 'true' if enabled_setting else (key == 'rd')
         
-        if is_enabled:
+        if is_enabled and token:
             service = cls()
-            token = ADDON.getSetting(f'{key}_token')
-            xbmc.log(f"Debrid {key} token exists: {bool(token)}", xbmc.LOGINFO)
-            
             if service.is_authorized():
                 xbmc.log(f"Using debrid service: {key}", xbmc.LOGINFO)
                 return service
     
-    # Fallback: try any authorized service regardless of enabled setting
-    xbmc.log("No enabled service found, trying any authorized...", xbmc.LOGINFO)
+    # Fallback: try any service with a token
+    xbmc.log("No enabled service found, trying any with token...", xbmc.LOGINFO)
     for key, cls in services:
-        service = cls()
-        if service.is_authorized():
-            xbmc.log(f"Fallback to debrid service: {key}", xbmc.LOGINFO)
-            return service
+        token = ADDON.getSetting(f'{key}_token')
+        if token:
+            service = cls()
+            if service.is_authorized():
+                xbmc.log(f"Fallback to debrid service: {key}", xbmc.LOGINFO)
+                return service
     
     xbmc.log("No authorized debrid service found!", xbmc.LOGERROR)
     return None

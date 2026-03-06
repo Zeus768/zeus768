@@ -13,7 +13,10 @@ import xbmcgui
 import xbmcaddon
 import xbmc
 
-ADDON = xbmcaddon.Addon()
+def get_addon():
+    """Get fresh addon instance"""
+    return xbmcaddon.Addon()
+
 SSL_CONTEXT = ssl._create_unverified_context()
 
 def http_request(url, data=None, headers=None, method='GET'):
@@ -46,10 +49,12 @@ class RealDebrid:
     CLIENT_ID = "X245A4XAIBGVM"
     
     def __init__(self):
+        ADDON = get_addon()
         self.token = ADDON.getSetting('rd_token')
         self.refresh_token = ADDON.getSetting('rd_refresh')
         self.client_id = ADDON.getSetting('rd_client_id') or self.CLIENT_ID
         self.client_secret = ADDON.getSetting('rd_client_secret')
+        xbmc.log(f"RealDebrid init: token_len={len(self.token) if self.token else 0}", xbmc.LOGINFO)
     
     def pair(self):
         """Start device pairing"""
@@ -107,13 +112,31 @@ class RealDebrid:
                     }, method='POST')
                     
                     if 'access_token' in token_data:
-                        ADDON.setSetting('rd_token', token_data['access_token'])
-                        ADDON.setSetting('rd_refresh', token_data.get('refresh_token', ''))
+                        # Save credentials
+                        access_token = token_data['access_token']
+                        refresh = token_data.get('refresh_token', '')
+                        
+                        xbmc.log(f"RD: Got access token: {access_token[:20]}...", xbmc.LOGINFO)
+                        
+                        ADDON = get_addon()
+                        ADDON.setSetting('rd_token', access_token)
+                        ADDON.setSetting('rd_refresh', refresh)
                         ADDON.setSetting('rd_client_id', client_id)
                         ADDON.setSetting('rd_client_secret', client_secret)
                         
+                        # Verify settings were saved
+                        ADDON2 = get_addon()
+                        saved_token = ADDON2.getSetting('rd_token')
+                        xbmc.log(f"RD: Verified saved token: {saved_token[:20] if saved_token else 'EMPTY'}...", xbmc.LOGINFO)
+                        
+                        # Update instance
+                        self.token = access_token
+                        self.refresh_token = refresh
+                        self.client_id = client_id
+                        self.client_secret = client_secret
+                        
                         progress.close()
-                        xbmcgui.Dialog().ok('Real-Debrid', '[COLOR lime]Successfully authorized![/COLOR]')
+                        xbmcgui.Dialog().ok('Real-Debrid', '[COLOR lime]Successfully authorized![/COLOR]\n\nYou can now play torrent links.')
                         return True
             
             progress.close()
