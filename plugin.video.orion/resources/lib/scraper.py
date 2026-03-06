@@ -1,7 +1,7 @@
 # -*- coding: utf-8 -*-
 """
-Torrent & Stream Scraper for Orion v2.4.0
-Fixed version with better error handling and working scrapers
+Torrent & Stream Scraper for Orion v2.5.0
+Maximum source coverage with all working scrapers
 """
 
 import urllib.request
@@ -11,13 +11,13 @@ import ssl
 import json
 import xbmc
 import xbmcaddon
+import time
 
 SSL_CONTEXT = ssl._create_unverified_context()
 ADDON = xbmcaddon.Addon()
 
-# Stremio Addon Base URLs - using public instances
+# Stremio Addon Base URLs
 TORRENTIO_BASE = "https://torrentio.strem.fun"
-MEDIAFUSION_BASE = "https://mediafusion.elfhosted.com"
 
 # VidSrc domains
 VIDSRC_DOMAINS = [
@@ -26,6 +26,14 @@ VIDSRC_DOMAINS = [
     "https://vidsrc.cc",
     "https://vidsrc.me",
     "https://vidsrc.xyz",
+    "https://vidsrc.in",
+]
+
+# Additional streaming embed sites
+EMBED_SITES = [
+    "https://2embed.cc",
+    "https://www.2embed.cc",
+    "https://multiembed.mov",
 ]
 
 def _fetch_page(url, timeout=15, referer=None):
@@ -421,7 +429,184 @@ def _search_eztv(imdb_id, title=None, season=None, episode=None):
     
     return results
 
+# ============== SOLIDTORRENTS ==============
+
+def _search_solidtorrents(query):
+    """Search SolidTorrents API"""
+    results = []
+    
+    try:
+        encoded_query = urllib.parse.quote_plus(query)
+        url = f"https://solidtorrents.to/api/v1/search?q={encoded_query}&category=Video&sort=seeders"
+        
+        data = _fetch_json(url, timeout=15)
+        
+        if not data or 'results' not in data:
+            return results
+        
+        for item in data.get('results', [])[:25]:
+            name = item.get('title', '')
+            info_hash = item.get('infohash', '')
+            size_bytes = item.get('size', 0)
+            seeders = item.get('seeders', 0)
+            
+            if not info_hash or not name:
+                continue
+            
+            if size_bytes > 1073741824:
+                size = f"{size_bytes / 1073741824:.1f} GB"
+            elif size_bytes > 1048576:
+                size = f"{size_bytes / 1048576:.0f} MB"
+            else:
+                size = ''
+            
+            magnet = _create_magnet(info_hash, name)
+            
+            results.append({
+                'name': name,
+                'magnet': magnet,
+                'quality': _detect_quality(name),
+                'size': size,
+                'seeds': seeders,
+                'source': 'SolidTorrents',
+                'source_type': 'torrent',
+                'debrid': True
+            })
+        
+        xbmc.log(f"SolidTorrents found {len(results)} results", xbmc.LOGINFO)
+        
+    except Exception as e:
+        xbmc.log(f"SolidTorrents error: {e}", xbmc.LOGWARNING)
+    
+    return results
+
+# ============== BTDIG ==============
+
+def _search_btdig(query):
+    """Search BTDig for torrents"""
+    results = []
+    
+    try:
+        encoded_query = urllib.parse.quote_plus(query)
+        url = f"https://btdig.com/search?q={encoded_query}&order=0"
+        
+        html = _fetch_page(url, timeout=15)
+        if not html:
+            return results
+        
+        # Parse magnet links
+        pattern = r'(magnet:\?xt=urn:btih:[a-fA-F0-9]{40}[^"\'<>\s]*)'
+        magnets = re.findall(pattern, html)
+        
+        # Also get names
+        name_pattern = r'<div class="one_result">.*?<a[^>]+>([^<]+)</a>'
+        names = re.findall(name_pattern, html, re.DOTALL)
+        
+        for i, magnet in enumerate(magnets[:20]):
+            dn_match = re.search(r'dn=([^&]+)', magnet)
+            name = urllib.parse.unquote_plus(dn_match.group(1)) if dn_match else (names[i] if i < len(names) else 'Unknown')
+            
+            results.append({
+                'name': name,
+                'magnet': magnet,
+                'quality': _detect_quality(name),
+                'size': '',
+                'seeds': 0,
+                'source': 'BTDig',
+                'source_type': 'torrent',
+                'debrid': True
+            })
+        
+        xbmc.log(f"BTDig found {len(results)} results", xbmc.LOGINFO)
+        
+    except Exception as e:
+        xbmc.log(f"BTDig error: {e}", xbmc.LOGWARNING)
+    
+    return results
+
+# ============== NYAA (Anime) ==============
+
+def _search_nyaa(query):
+    """Search Nyaa for anime torrents"""
+    results = []
+    
+    try:
+        encoded_query = urllib.parse.quote_plus(query)
+        url = f"https://nyaa.si/?f=0&c=1_2&q={encoded_query}&s=seeders&o=desc"
+        
+        html = _fetch_page(url, timeout=15)
+        if not html:
+            return results
+        
+        # Find magnet links
+        pattern = r'(magnet:\?xt=urn:btih:[a-fA-F0-9]{40}[^"\'<>\s]*)'
+        magnets = re.findall(pattern, html)
+        
+        for magnet in magnets[:15]:
+            dn_match = re.search(r'dn=([^&]+)', magnet)
+            if dn_match:
+                name = urllib.parse.unquote_plus(dn_match.group(1))
+            else:
+                continue
+            
+            results.append({
+                'name': name,
+                'magnet': magnet,
+                'quality': _detect_quality(name),
+                'size': '',
+                'seeds': 0,
+                'source': 'Nyaa',
+                'source_type': 'torrent',
+                'debrid': True
+            })
+        
+        xbmc.log(f"Nyaa found {len(results)} results", xbmc.LOGINFO)
+        
+    except Exception as e:
+        xbmc.log(f"Nyaa error: {e}", xbmc.LOGWARNING)
+    
+    return results
+
 # ============== VIDSRC ==============
+
+def _extract_vidsrc_stream(embed_url, timeout=15):
+    """Extract actual stream URL from VidSrc embed"""
+    try:
+        html = _fetch_page(embed_url, timeout=timeout)
+        if not html:
+            return None
+        
+        # Look for m3u8 stream URLs
+        m3u8_patterns = [
+            r'(https?://[^"\'<>\s]+\.m3u8[^"\'<>\s]*)',
+            r'"file"\s*:\s*"([^"]+\.m3u8[^"]*)"',
+            r"'file'\s*:\s*'([^']+\.m3u8[^']*)'",
+            r'source\s*:\s*["\']([^"\']+\.m3u8[^"\']*)["\']',
+            r'src\s*=\s*["\']([^"\']+\.m3u8[^"\']*)["\']',
+        ]
+        
+        for pattern in m3u8_patterns:
+            matches = re.findall(pattern, html)
+            if matches:
+                for url in matches:
+                    if 'master' in url.lower() or 'index' in url.lower() or url.endswith('.m3u8'):
+                        return url
+        
+        # Try to find video source in scripts
+        script_pattern = r'<script[^>]*>(.*?)</script>'
+        scripts = re.findall(script_pattern, html, re.DOTALL)
+        
+        for script in scripts:
+            for pattern in m3u8_patterns:
+                matches = re.findall(pattern, script)
+                if matches:
+                    return matches[0]
+        
+        return None
+        
+    except Exception as e:
+        xbmc.log(f"VidSrc extraction error: {e}", xbmc.LOGWARNING)
+        return None
 
 def _get_vidsrc_streams(tmdb_id, media_type='movie', season=None, episode=None, imdb_id=None):
     """Get VidSrc streaming links"""
@@ -567,22 +752,32 @@ def search_movie(title, year='', tmdb_id=None, progress=None):
     # 1. Torrentio (best source)
     if _is_source_enabled('torrentio') and imdb_id:
         if progress:
-            progress.update(5, "Searching Torrentio...")
+            progress.update(3, "Searching Torrentio...")
         add_results(_search_torrentio(imdb_id, 'movie'))
     
     # 2. YTS (great for movies)
     if _is_source_enabled('yts'):
         if progress:
-            progress.update(20, "Searching YTS...")
+            progress.update(10, "Searching YTS...")
         add_results(_search_yts(title, year))
     
     # 3. PirateBay API
     if _is_source_enabled('piratebay'):
         if progress:
-            progress.update(35, "Searching PirateBay...")
+            progress.update(20, "Searching PirateBay...")
         add_results(_search_piratebay(search_query))
     
-    # 4. 1337x
+    # 4. SolidTorrents
+    if progress:
+        progress.update(30, "Searching SolidTorrents...")
+    add_results(_search_solidtorrents(search_query))
+    
+    # 5. BTDig
+    if progress:
+        progress.update(40, "Searching BTDig...")
+    add_results(_search_btdig(search_query))
+    
+    # 6. 1337x
     if _is_source_enabled('1337x'):
         if progress:
             progress.update(50, "Searching 1337x...")
@@ -647,25 +842,40 @@ def search_episode(title, season, episode, tmdb_id=None, progress=None):
     # 1. Torrentio
     if _is_source_enabled('torrentio') and imdb_id:
         if progress:
-            progress.update(5, "Searching Torrentio...")
+            progress.update(3, "Searching Torrentio...")
         add_results(_search_torrentio(imdb_id, 'tv', season, episode))
     
     # 2. EZTV (specialized for TV)
     if _is_source_enabled('eztv') and imdb_id:
         if progress:
-            progress.update(25, "Searching EZTV...")
+            progress.update(15, "Searching EZTV...")
         add_results(_search_eztv(imdb_id, title, season, episode))
     
     # 3. PirateBay
     if _is_source_enabled('piratebay'):
         if progress:
-            progress.update(45, "Searching PirateBay...")
+            progress.update(25, "Searching PirateBay...")
         add_results(_search_piratebay(search_query))
     
-    # 4. 1337x
+    # 4. SolidTorrents
+    if progress:
+        progress.update(35, "Searching SolidTorrents...")
+    add_results(_search_solidtorrents(search_query))
+    
+    # 5. BTDig
+    if progress:
+        progress.update(45, "Searching BTDig...")
+    add_results(_search_btdig(search_query))
+    
+    # 6. Nyaa (for anime)
+    if progress:
+        progress.update(55, "Searching Nyaa...")
+    add_results(_search_nyaa(search_query))
+    
+    # 7. 1337x
     if _is_source_enabled('1337x'):
         if progress:
-            progress.update(60, "Searching 1337x...")
+            progress.update(65, "Searching 1337x...")
         results_1337x = _search_1337x(search_query)
         for r in results_1337x:
             if 'page_url' in r:
@@ -674,17 +884,17 @@ def search_episode(title, season, episode, tmdb_id=None, progress=None):
                     r['magnet'] = magnet
                     add_results([r])
     
-    # 5. VidSrc
+    # 8. VidSrc
     if _is_source_enabled('vidsrc'):
         if progress:
-            progress.update(75, "Getting VidSrc streams...")
+            progress.update(80, "Getting VidSrc streams...")
         if tmdb_id or imdb_id:
             results.extend(_get_vidsrc_streams(tmdb_id, 'tv', season, episode, imdb_id))
     
-    # 6. Streaming sites
+    # 9. Streaming sites
     if _is_source_enabled('streaming_sites'):
         if progress:
-            progress.update(90, "Checking streaming sites...")
+            progress.update(92, "Checking streaming sites...")
         results.extend(_scrape_streaming_sites(imdb_id, tmdb_id, title, 'tv', season, episode))
     
     if progress:
