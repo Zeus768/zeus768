@@ -1,5 +1,5 @@
 <?xml version="1.0" encoding="UTF-8" standalone="yes"?>
-<addon id="plugin.video.orion" name="Orion" version="2.3.0" provider-name="zeus768">
+<addon id="plugin.video.orion" name="Orion" version="2.4.0" provider-name="zeus768">
     <requires>
         <import addon="xbmc.python" version="3.0.1"/>
         <import addon="script.module.requests" version="2.25.0"/>
@@ -9,8 +9,8 @@
     </extension>
     <extension point="xbmc.addon.metadata">
         <summary lang="en">Orion Media Explorer</summary>
-        <description lang="en">Orion v2.3.0 - Ultimate media addon with streaming provider browsing. Browse by Netflix, Disney+, Hulu, Max, Prime Video, and 20+ more streaming services with icons. Includes Torrentio, MediaFusion (Stremio addons), Orionoid API, YTS, EZTV, 1337x, TorrentGalaxy torrents. Direct streaming from VidSrc, FlixMomo, HydraHD, and more. Supports Real-Debrid, Premiumize, AllDebrid and Trakt. TMDB metadata with quality filtering.</description>
-        <news>[2.3.0] Added Browse by Streaming Service feature - browse content from Netflix, Disney+, Hulu, Max (HBO), Prime Video, Paramount+, Apple TV+, Peacock, Crunchyroll, and 20+ more providers with icons. Added region selection for providers (US, UK, CA, AU, etc).</news>
+        <description lang="en">Orion v2.4.0 - Ultimate streaming addon. Torrent sources: Torrentio, YTS, EZTV, 1337x, PirateBay. Direct streams: VidSrc, HydraHD, FlickyStream, Cineby. Supports Real-Debrid, Premiumize, AllDebrid. TMDB metadata with quality filtering.</description>
+        <news>[2.4.0] Fixed torrent scrapers - Added PirateBay API, fixed 1337x mirrors, improved IMDB ID handling for Torrentio. Fixed direct stream playback issues.</news>
         <platform>all</platform>
         <license>GPL-3.0</license>
         <assets>

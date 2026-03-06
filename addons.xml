@@ -1,6 +1,6 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <addons>
-    <addon id="plugin.video.orion" name="Orion" version="2.3.0" provider-name="zeus768">
+    <addon id="plugin.video.orion" name="Orion" version="2.4.0" provider-name="zeus768">
         <requires>
             <import addon="xbmc.python" version="3.0.1"/>
             <import addon="script.module.requests" version="2.25.0"/>
@@ -10,7 +10,7 @@
         </extension>
         <extension point="xbmc.addon.metadata">
             <summary lang="en">Orion Media Explorer</summary>
-            <description lang="en">Orion v2.3.0 - Ultimate media addon with streaming provider browsing. Browse by Netflix, Disney+, Hulu, Max, Prime Video, and 20+ more streaming services with icons. Includes Torrentio, MediaFusion (Stremio addons), Orionoid API, YTS, EZTV, 1337x, TorrentGalaxy torrents. Direct streaming from VidSrc, FlixMomo, HydraHD, and more. Supports Real-Debrid, Premiumize, AllDebrid and Trakt. TMDB metadata with quality filtering.</description>
+            <description lang="en">Orion v2.4.0 - Ultimate streaming addon. Torrent sources: Torrentio, YTS, EZTV, 1337x, PirateBay. Direct streams: VidSrc, HydraHD, FlickyStream, Cineby. Supports Real-Debrid, Premiumize, AllDebrid. TMDB metadata with quality filtering.</description>
             <platform>all</platform>
             <license>GPL-3.0</license>
             <assets>
@@ -32,7 +32,7 @@
         </extension>
         <extension point="xbmc.addon.metadata">
             <summary>Zeus768 Repository</summary>
-            <description>Official Zeus768 repository for Kodi addons. Home of Orion Media Explorer - the ultimate streaming addon with multi-source support.</description>
+            <description>Official Zeus768 repository for Kodi addons. Home of Orion Media Explorer.</description>
             <platform>all</platform>
             <assets>
                 <icon>icon.png</icon>

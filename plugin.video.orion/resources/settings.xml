@@ -41,18 +41,14 @@
     <category label="Sources">
         <setting id="sources_sep1" type="lsep" label="--- Stremio Addons ---"/>
         <setting id="enable_torrentio" type="bool" label="Enable Torrentio" default="true"/>
-        <setting id="enable_mediafusion" type="bool" label="Enable MediaFusion" default="true"/>
         <setting id="sources_sep2" type="lsep" label="--- Torrent Indexers ---"/>
-        <setting id="enable_orionoid" type="bool" label="Enable Orionoid" default="true"/>
         <setting id="enable_yts" type="bool" label="Enable YTS (Movies)" default="true"/>
         <setting id="enable_eztv" type="bool" label="Enable EZTV (TV)" default="true"/>
         <setting id="enable_1337x" type="bool" label="Enable 1337x" default="true"/>
-        <setting id="enable_torrentgalaxy" type="bool" label="Enable TorrentGalaxy" default="true"/>
+        <setting id="enable_piratebay" type="bool" label="Enable PirateBay" default="true"/>
         <setting id="sources_sep3" type="lsep" label="--- Direct Streams ---"/>
         <setting id="enable_vidsrc" type="bool" label="Enable VidSrc" default="true"/>
-        <setting id="enable_streaming_sites" type="bool" label="Enable Streaming Sites (FlixMomo, HydraHD, etc.)" default="true"/>
-        <setting id="sources_sep4" type="lsep" label="--- DDL Sources ---"/>
-        <setting id="enable_rlsbb" type="bool" label="Enable RLSBB (Rapidgator, etc.)" default="false"/>
+        <setting id="enable_streaming_sites" type="bool" label="Enable Streaming Sites" default="true"/>
     </category>
     <category label="General">
         <setting id="provider_region" type="labelenum" label="Streaming Provider Region" values="US|GB|CA|AU|DE|FR|ES|IT|JP|KR|BR|MX|IN" default="0"/>
