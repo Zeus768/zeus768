@@ -53,7 +53,7 @@ def resolve_with_resolveurl(url):
                 xbmc.log(f"ResolveURL resolved: {resolved[:50]}...", xbmc.LOGINFO)
                 return resolved
     except ImportError:
-        xbmc.log("ResolveURL not installed", xbmc.LOGWARNING)
+        xbmc.log("ResolveURL Error: No module named 'resolveurl' - install from Zeus768 repo or Gujal repo", xbmc.LOGWARNING)
     except Exception as e:
         xbmc.log(f"ResolveURL error: {e}", xbmc.LOGWARNING)
     
@@ -69,13 +69,24 @@ def resolve_magnet(magnet, progress=None):
     service = get_active_debrid()
     
     if not service:
-        xbmc.log("No authorized debrid service found", xbmc.LOGERROR)
+        xbmc.log("No authorized debrid service found - check Settings > Real-Debrid > Authorize", xbmc.LOGERROR)
         
         # Try ResolveURL as fallback if enabled
         if use_resolveurl:
+            if progress:
+                progress.update(50, 'No debrid auth - trying ResolveURL...')
             resolved = resolve_with_resolveurl(magnet)
             if resolved:
                 return resolved
+        
+        # Show helpful notification
+        import xbmcgui
+        xbmcgui.Dialog().notification(
+            'Orion',
+            'No debrid authorized! Go to Settings > Real-Debrid',
+            xbmcgui.NOTIFICATION_WARNING,
+            5000
+        )
         
         return None
     

@@ -1,5 +1,5 @@
 <?xml version="1.0" encoding="UTF-8" standalone="yes"?>
-<addon id="plugin.video.orion" name="Orion" version="3.3.0" provider-name="zeus768">
+<addon id="plugin.video.orion" name="Orion" version="3.3.1" provider-name="zeus768">
     <requires>
         <import addon="xbmc.python" version="3.0.1"/>
         <import addon="script.module.requests" version="2.25.0"/>
@@ -11,7 +11,7 @@
     <extension point="xbmc.addon.metadata">
         <summary lang="en">Orion Media Explorer</summary>
         <description lang="en">Orion v3.3.0 - Complete media addon with 25+ torrent scrapers including Russian trackers (Rutor, RuTracker, Kinozal, NNM-Club), TorrServer integration, plus Torrentio, PirateBay, YTS, EZTV, 1337x, Knaben, TorrentGalaxy, SolidTorrents, BTDig, LimeTorrents, Nyaa, Comet, Torlock, GloDLS, MagnetDL, KickAss, MediaFusion, Jackettio, Orionoid. Real-Debrid, Premiumize, AllDebrid, Trakt, ResolveURL 5.1.193.</description>
-        <news>[3.3.0] Added Russian trackers: Rutor, RuTracker, Kinozal, NNM-Club. Added TorrServer integration. Added Torlock, GloDLS, MagnetDL, KickAss scrapers. Total 25+ scraper sources.</news>
+        <news>[3.3.1] Fixed repository zip download paths (404 errors). Fixed debrid token storage using file-based persistence. Improved error messages for debrid authorization. Fixed ResolveURL installation from repo.</news>
         <platform>all</platform>
         <license>GPL-3.0</license>
         <assets>

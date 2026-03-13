@@ -2,6 +2,7 @@
 """
 Debrid Services Integration for Orion
 Supports: Real-Debrid, Premiumize, AllDebrid
+Uses file-based token storage for reliability
 """
 
 import urllib.request
@@ -9,12 +10,61 @@ import urllib.parse
 import json
 import time
 import ssl
+import os
 import xbmcgui
 import xbmcaddon
 import xbmc
 
 ADDON = xbmcaddon.Addon()
 SSL_CONTEXT = ssl._create_unverified_context()
+
+# File-based token storage path
+TOKEN_FILE = os.path.join(xbmcaddon.Addon().getAddonInfo('profile'), 'debrid_tokens.json')
+
+def _load_tokens():
+    """Load tokens from file"""
+    try:
+        token_dir = os.path.dirname(TOKEN_FILE)
+        if not os.path.exists(token_dir):
+            os.makedirs(token_dir)
+        if os.path.exists(TOKEN_FILE):
+            with open(TOKEN_FILE, 'r') as f:
+                return json.load(f)
+    except Exception as e:
+        xbmc.log(f"Token load error: {e}", xbmc.LOGWARNING)
+    return {}
+
+def _save_tokens(tokens):
+    """Save tokens to file"""
+    try:
+        token_dir = os.path.dirname(TOKEN_FILE)
+        if not os.path.exists(token_dir):
+            os.makedirs(token_dir)
+        with open(TOKEN_FILE, 'w') as f:
+            json.dump(tokens, f, indent=2)
+        xbmc.log(f"Tokens saved to {TOKEN_FILE}", xbmc.LOGINFO)
+    except Exception as e:
+        xbmc.log(f"Token save error: {e}", xbmc.LOGERROR)
+
+def _get_token(key):
+    """Get a token value - try file first, then settings"""
+    tokens = _load_tokens()
+    val = tokens.get(key, '')
+    if val:
+        return val
+    # Fallback to addon settings
+    return ADDON.getSetting(key)
+
+def _set_token(key, value):
+    """Save a token value to BOTH file and settings"""
+    tokens = _load_tokens()
+    tokens[key] = value
+    _save_tokens(tokens)
+    # Also save to addon settings for backwards compat
+    try:
+        ADDON.setSetting(key, value)
+    except:
+        pass
 
 def http_request(url, data=None, headers=None, method='GET'):
     """Make HTTP request"""
@@ -46,10 +96,10 @@ class RealDebrid:
     CLIENT_ID = "X245A4XAIBGVM"
     
     def __init__(self):
-        self.token = ADDON.getSetting('rd_token')
-        self.refresh_token = ADDON.getSetting('rd_refresh')
-        self.client_id = ADDON.getSetting('rd_client_id') or self.CLIENT_ID
-        self.client_secret = ADDON.getSetting('rd_client_secret')
+        self.token = _get_token('rd_token')
+        self.refresh_token = _get_token('rd_refresh')
+        self.client_id = _get_token('rd_client_id') or self.CLIENT_ID
+        self.client_secret = _get_token('rd_client_secret')
     
     def pair(self):
         """Start device pairing"""
@@ -107,10 +157,16 @@ class RealDebrid:
                     }, method='POST')
                     
                     if 'access_token' in token_data:
-                        ADDON.setSetting('rd_token', token_data['access_token'])
-                        ADDON.setSetting('rd_refresh', token_data.get('refresh_token', ''))
-                        ADDON.setSetting('rd_client_id', client_id)
-                        ADDON.setSetting('rd_client_secret', client_secret)
+                        _set_token('rd_token', token_data['access_token'])
+                        _set_token('rd_refresh', token_data.get('refresh_token', ''))
+                        _set_token('rd_client_id', client_id)
+                        _set_token('rd_client_secret', client_secret)
+                        
+                        # Update instance
+                        self.token = token_data['access_token']
+                        self.refresh_token = token_data.get('refresh_token', '')
+                        self.client_id = client_id
+                        self.client_secret = client_secret
                         
                         progress.close()
                         xbmcgui.Dialog().ok('Real-Debrid', '[COLOR lime]Successfully authorized![/COLOR]')
@@ -216,7 +272,7 @@ class Premiumize:
     BASE_URL = "https://www.premiumize.me/api"
     
     def __init__(self):
-        self.token = ADDON.getSetting('pm_token')
+        self.token = _get_token('pm_token')
     
     def pair(self):
         """Start device pairing"""
@@ -261,7 +317,8 @@ class Premiumize:
                 check_data = http_request(check_url, {'code': device_code}, method='POST')
                 
                 if check_data.get('status') == 'success' and 'apikey' in check_data:
-                    ADDON.setSetting('pm_token', check_data['apikey'])
+                    _set_token('pm_token', check_data['apikey'])
+                    self.token = check_data['apikey']
                     
                     progress.close()
                     xbmcgui.Dialog().ok('Premiumize', '[COLOR lime]Successfully authorized![/COLOR]')
@@ -371,7 +428,7 @@ class AllDebrid:
     AGENT = "Orion"
     
     def __init__(self):
-        self.token = ADDON.getSetting('ad_token')
+        self.token = _get_token('ad_token')
     
     def pair(self):
         """Start PIN pairing"""
@@ -420,7 +477,8 @@ class AllDebrid:
                     if pin_result.get('activated'):
                         apikey = pin_result.get('apikey')
                         if apikey:
-                            ADDON.setSetting('ad_token', apikey)
+                            _set_token('ad_token', apikey)
+                            self.token = apikey
                             
                             progress.close()
                             xbmcgui.Dialog().ok('AllDebrid', '[COLOR lime]Successfully authorized![/COLOR]')

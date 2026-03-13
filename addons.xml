@@ -1,7 +1,7 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <addons>
     <!-- Main Addons -->
-    <addon id="plugin.video.orion" name="Orion" version="3.3.0" provider-name="zeus768">
+    <addon id="plugin.video.orion" name="Orion" version="3.3.1" provider-name="zeus768">
         <requires>
             <import addon="xbmc.python" version="3.0.1"/>
             <import addon="script.module.requests" version="2.32.5"/>
@@ -226,7 +226,7 @@
     </addon>
     
     <!-- Zeus768 Repository -->
-    <addon id="repository.zeus768" name="Zeus768 Repository" version="1.0.4" provider-name="zeus768">
+    <addon id="repository.zeus768" name="Zeus768 Repository" version="1.0.5" provider-name="zeus768">
         <requires>
             <import addon="xbmc.addon" version="17.9.910"/>
         </requires>
@@ -239,7 +239,7 @@
         </extension>
         <extension point="xbmc.addon.metadata">
             <summary>Zeus768 Repository</summary>
-            <description>Official Zeus768 repository for Kodi addons. Includes Orion v3.2.0, The Accountant, Strike Zone, ResolveURL 5.1.193, and Gujal repo.</description>
+            <description>Official Zeus768 repository for Kodi addons. Includes Orion v3.3.1, The Accountant, Strike Zone, ResolveURL 5.1.193, and Gujal repo.</description>
             <platform>all</platform>
             <assets>
                 <icon>icon.png</icon>
