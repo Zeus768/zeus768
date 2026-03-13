@@ -2,9 +2,8 @@
 <addon id="plugin.video.strikezone" name="Strike Zone" version="1.2.0" provider-name="zeus768">
     <requires>
         <import addon="xbmc.python" version="3.0.0"/>
-        <import addon="script.module.resolveurl"/>
-        <import addon="script.module.requests"/>
-        <import addon="script.module.beautifulsoup4"/>
+        <import addon="script.module.resolveurl" optional="true"/>
+        <import addon="script.module.beautifulsoup4" optional="true"/>
     </requires>
     <extension point="xbmc.python.pluginsource" library="main.py">
         <provides>video</provides>
