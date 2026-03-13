@@ -1,5 +1,5 @@
 <?xml version="1.0" encoding="UTF-8"?>
-<addon id="repository.zeus768" name="Zeus768 Repository" version="1.0.1" provider-name="zeus768">
+<addon id="repository.zeus768" name="Zeus768 Repository" version="1.0.3" provider-name="zeus768">
     <requires>
         <import addon="xbmc.addon" version="17.9.910"/>
     </requires>
@@ -12,7 +12,7 @@
     </extension>
     <extension point="xbmc.addon.metadata">
         <summary>Zeus768 Repository</summary>
-        <description>Official Zeus768 repository for Kodi addons. Home of Orion Media Explorer - the ultimate streaming addon with multi-source support.</description>
+        <description>Official Zeus768 repository for Kodi addons. Home of Orion, The Accountant, and Strike Zone.</description>
         <platform>all</platform>
         <assets>
             <icon>icon.png</icon>

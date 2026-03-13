@@ -9,49 +9,11 @@ import urllib.parse
 import json
 import time
 import ssl
-import os
 import xbmcgui
 import xbmcaddon
 import xbmc
-import xbmcvfs
 
-def get_addon():
-    """Get fresh addon instance"""
-    return xbmcaddon.Addon()
-
-def get_addon_data_path():
-    """Get addon data path for storing tokens"""
-    addon = get_addon()
-    path = xbmcvfs.translatePath(addon.getAddonInfo('profile'))
-    if not os.path.exists(path):
-        os.makedirs(path)
-    return path
-
-def save_token_to_file(service, token_data):
-    """Save token to file as backup"""
-    try:
-        path = os.path.join(get_addon_data_path(), f'{service}_token.json')
-        with open(path, 'w') as f:
-            json.dump(token_data, f)
-        xbmc.log(f"Saved {service} token to file: {path}", xbmc.LOGINFO)
-        return True
-    except Exception as e:
-        xbmc.log(f"Error saving token file: {e}", xbmc.LOGERROR)
-        return False
-
-def load_token_from_file(service):
-    """Load token from file"""
-    try:
-        path = os.path.join(get_addon_data_path(), f'{service}_token.json')
-        if os.path.exists(path):
-            with open(path, 'r') as f:
-                data = json.load(f)
-                xbmc.log(f"Loaded {service} token from file", xbmc.LOGINFO)
-                return data
-    except Exception as e:
-        xbmc.log(f"Error loading token file: {e}", xbmc.LOGWARNING)
-    return None
-
+ADDON = xbmcaddon.Addon()
 SSL_CONTEXT = ssl._create_unverified_context()
 
 def http_request(url, data=None, headers=None, method='GET'):
@@ -84,22 +46,10 @@ class RealDebrid:
     CLIENT_ID = "X245A4XAIBGVM"
     
     def __init__(self):
-        # Try to load from file first (more reliable)
-        file_data = load_token_from_file('rd')
-        if file_data:
-            self.token = file_data.get('access_token', '')
-            self.refresh_token = file_data.get('refresh_token', '')
-            self.client_id = file_data.get('client_id', self.CLIENT_ID)
-            self.client_secret = file_data.get('client_secret', '')
-        else:
-            # Fallback to addon settings
-            ADDON = get_addon()
-            self.token = ADDON.getSetting('rd_token')
-            self.refresh_token = ADDON.getSetting('rd_refresh')
-            self.client_id = ADDON.getSetting('rd_client_id') or self.CLIENT_ID
-            self.client_secret = ADDON.getSetting('rd_client_secret')
-        
-        xbmc.log(f"RealDebrid init: token_len={len(self.token) if self.token else 0}", xbmc.LOGINFO)
+        self.token = ADDON.getSetting('rd_token')
+        self.refresh_token = ADDON.getSetting('rd_refresh')
+        self.client_id = ADDON.getSetting('rd_client_id') or self.CLIENT_ID
+        self.client_secret = ADDON.getSetting('rd_client_secret')
     
     def pair(self):
         """Start device pairing"""
@@ -157,39 +107,13 @@ class RealDebrid:
                     }, method='POST')
                     
                     if 'access_token' in token_data:
-                        # Save credentials
-                        access_token = token_data['access_token']
-                        refresh = token_data.get('refresh_token', '')
-                        
-                        xbmc.log(f"RD: Got access token: {access_token[:20]}...", xbmc.LOGINFO)
-                        
-                        # Save to file (primary - more reliable)
-                        token_file_data = {
-                            'access_token': access_token,
-                            'refresh_token': refresh,
-                            'client_id': client_id,
-                            'client_secret': client_secret
-                        }
-                        save_token_to_file('rd', token_file_data)
-                        
-                        # Also try to save to addon settings
-                        try:
-                            ADDON = get_addon()
-                            ADDON.setSetting('rd_token', access_token)
-                            ADDON.setSetting('rd_refresh', refresh)
-                            ADDON.setSetting('rd_client_id', client_id)
-                            ADDON.setSetting('rd_client_secret', client_secret)
-                        except Exception as e:
-                            xbmc.log(f"RD: Could not save to addon settings: {e}", xbmc.LOGWARNING)
-                        
-                        # Update instance
-                        self.token = access_token
-                        self.refresh_token = refresh
-                        self.client_id = client_id
-                        self.client_secret = client_secret
+                        ADDON.setSetting('rd_token', token_data['access_token'])
+                        ADDON.setSetting('rd_refresh', token_data.get('refresh_token', ''))
+                        ADDON.setSetting('rd_client_id', client_id)
+                        ADDON.setSetting('rd_client_secret', client_secret)
                         
                         progress.close()
-                        xbmcgui.Dialog().ok('Real-Debrid', '[COLOR lime]Successfully authorized![/COLOR]\n\nYou can now play torrent links.')
+                        xbmcgui.Dialog().ok('Real-Debrid', '[COLOR lime]Successfully authorized![/COLOR]')
                         return True
             
             progress.close()

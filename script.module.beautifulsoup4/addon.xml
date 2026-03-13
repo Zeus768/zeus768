@@ -1,0 +1,13 @@
+<?xml version="1.0" encoding="UTF-8" standalone="yes"?>
+<addon id="script.module.beautifulsoup4" name="BeautifulSoup4" version="4.14.3" provider-name="zeus768">
+    <requires>
+        <import addon="xbmc.python" version="3.0.0"/>
+    </requires>
+    <extension point="xbmc.python.module" library="lib"/>
+    <extension point="xbmc.addon.metadata">
+        <summary lang="en">BeautifulSoup4 Python module</summary>
+        <description lang="en">BeautifulSoup4 Python module for Kodi addons</description>
+        <platform>all</platform>
+        <license>MIT</license>
+    </extension>
+</addon>

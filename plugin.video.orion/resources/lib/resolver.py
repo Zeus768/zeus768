@@ -1,21 +1,18 @@
 # -*- coding: utf-8 -*-
 """
-Link Resolver for Orion
-Resolves magnet links via debrid services
+Link Resolver for Orion v3.0
+Resolves magnet links via debrid services or ResolveURL
 """
 
 import xbmcaddon
 import xbmc
 
-def get_addon():
-    """Get fresh addon instance to ensure settings are current"""
-    return xbmcaddon.Addon()
+ADDON = xbmcaddon.Addon()
 
 def get_active_debrid():
     """Get the active debrid service based on settings"""
     from resources.lib import debrid
     
-    ADDON = get_addon()
     priority = int(ADDON.getSetting('debrid_priority') or 0)
     
     services = [
@@ -32,41 +29,54 @@ def get_active_debrid():
     
     # Find first enabled and authorized service
     for key, cls in services:
-        enabled_setting = ADDON.getSetting(f'{key}_enabled')
-        token = ADDON.getSetting(f'{key}_token')
-        
-        xbmc.log(f"Debrid check {key}: enabled='{enabled_setting}', token_len={len(token) if token else 0}", xbmc.LOGINFO)
-        
-        # Check if enabled (default to true for RD)
-        is_enabled = enabled_setting.lower() == 'true' if enabled_setting else (key == 'rd')
-        
-        if is_enabled and token:
+        if ADDON.getSetting(f'{key}_enabled') == 'true':
             service = cls()
             if service.is_authorized():
-                xbmc.log(f"Using debrid service: {key}", xbmc.LOGINFO)
                 return service
     
-    # Fallback: try any service with a token
-    xbmc.log("No enabled service found, trying any with token...", xbmc.LOGINFO)
+    # Fallback: try any authorized service
     for key, cls in services:
-        token = ADDON.getSetting(f'{key}_token')
-        if token:
-            service = cls()
-            if service.is_authorized():
-                xbmc.log(f"Fallback to debrid service: {key}", xbmc.LOGINFO)
-                return service
+        service = cls()
+        if service.is_authorized():
+            return service
     
-    xbmc.log("No authorized debrid service found!", xbmc.LOGERROR)
+    return None
+
+def resolve_with_resolveurl(url):
+    """Try to resolve URL using ResolveURL addon"""
+    try:
+        import resolveurl
+        
+        if resolveurl.HostedMediaFile(url).valid_url():
+            resolved = resolveurl.HostedMediaFile(url).resolve()
+            if resolved:
+                xbmc.log(f"ResolveURL resolved: {resolved[:50]}...", xbmc.LOGINFO)
+                return resolved
+    except ImportError:
+        xbmc.log("ResolveURL not installed", xbmc.LOGWARNING)
+    except Exception as e:
+        xbmc.log(f"ResolveURL error: {e}", xbmc.LOGWARNING)
+    
     return None
 
 def resolve_magnet(magnet, progress=None):
     """Resolve magnet link to stream URL"""
     from resources.lib import debrid
     
+    # Check if we should try ResolveURL first for certain links
+    use_resolveurl = ADDON.getSetting('use_resolveurl') == 'true'
+    
     service = get_active_debrid()
     
     if not service:
         xbmc.log("No authorized debrid service found", xbmc.LOGERROR)
+        
+        # Try ResolveURL as fallback if enabled
+        if use_resolveurl:
+            resolved = resolve_with_resolveurl(magnet)
+            if resolved:
+                return resolved
+        
         return None
     
     service_name = service.__class__.__name__
@@ -75,7 +85,43 @@ def resolve_magnet(magnet, progress=None):
     if progress:
         progress.update(5, f'Resolving via {service_name}...')
     
-    return service.resolve_magnet(magnet, progress)
+    stream_url = service.resolve_magnet(magnet, progress)
+    
+    # If debrid resolution fails and ResolveURL is enabled, try that
+    if not stream_url and use_resolveurl:
+        if progress:
+            progress.update(80, 'Trying ResolveURL...')
+        stream_url = resolve_with_resolveurl(magnet)
+    
+    return stream_url
+
+def resolve_url(url, progress=None):
+    """Resolve a URL (non-magnet) using debrid or ResolveURL"""
+    use_resolveurl = ADDON.getSetting('use_resolveurl') == 'true'
+    
+    # First try ResolveURL for direct links
+    if use_resolveurl:
+        if progress:
+            progress.update(20, 'Trying ResolveURL...')
+        resolved = resolve_with_resolveurl(url)
+        if resolved:
+            return resolved
+    
+    # Try debrid unrestrict
+    service = get_active_debrid()
+    if service:
+        if progress:
+            progress.update(50, f'Trying {service.__class__.__name__}...')
+        
+        try:
+            if hasattr(service, 'unrestrict_link'):
+                resolved = service.unrestrict_link(url)
+                if resolved:
+                    return resolved
+        except Exception as e:
+            xbmc.log(f"Debrid unrestrict error: {e}", xbmc.LOGWARNING)
+    
+    return url
 
 def filter_by_quality(sources, preferred_quality):
     """Filter sources by preferred quality"""
@@ -91,10 +137,8 @@ def filter_by_quality(sources, preferred_quality):
     if not preferred:
         return sources
     
-    # Filter to preferred quality
     filtered = [s for s in sources if s.get('quality') in preferred]
     
-    # If no matches, return all sources
     return filtered if filtered else sources
 
 def auto_select_source(sources):
@@ -102,10 +146,8 @@ def auto_select_source(sources):
     if not sources:
         return None
     
-    # Quality priority order
     quality_order = {'4K': 0, '2160p': 0, '1080p': 1, '720p': 2, 'SD': 3, '480p': 3, 'Unknown': 4}
     
-    # Sort by quality then seeds
     sorted_sources = sorted(
         sources,
         key=lambda x: (quality_order.get(x.get('quality', 'Unknown'), 4), -x.get('seeds', 0))

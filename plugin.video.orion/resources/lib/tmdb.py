@@ -105,60 +105,56 @@ def get_external_ids(media_type, item_id):
     """Get external IDs (IMDB, etc.)"""
     return fetch_json(f"/{media_type}/{item_id}/external_ids")
 
-def get_watch_providers(media_type, region='US'):
-    """Get list of available watch providers (streaming services)"""
-    return fetch_json(f"/watch/providers/{media_type}", {'watch_region': region})
-
-def get_provider_logo_url(path, size='w92'):
-    """Get provider logo URL"""
-    if path:
-        return f"{IMG_BASE_URL}/{size}{path}"
-    return None
-
-def get_by_provider(media_type, provider_id, page=1, region='US'):
-    """Get content by streaming provider"""
-    return fetch_json(f"/discover/{media_type}", {
-        'with_watch_providers': provider_id,
-        'watch_region': region,
+def get_kids_movies(page=1, certification='G,PG'):
+    """Get family-friendly movies (G, PG rated)"""
+    return fetch_json("/discover/movie", {
+        'certification_country': 'US',
+        'certification.lte': 'PG',
+        'sort_by': 'popularity.desc',
         'page': page,
-        'sort_by': 'popularity.desc'
+        'vote_count.gte': 100
     })
 
-def get_provider_details(media_type, item_id):
-    """Get watch providers for a specific movie/show"""
-    return fetch_json(f"/{media_type}/{item_id}/watch/providers")
+def get_animation_movies(page=1):
+    """Get animated movies"""
+    return fetch_json("/discover/movie", {
+        'with_genres': '16',  # Animation genre ID
+        'sort_by': 'popularity.desc',
+        'page': page
+    })
 
-# Popular streaming providers with their TMDB IDs and colors
-STREAMING_PROVIDERS = {
-    8: {'name': 'Netflix', 'color': 'red'},
-    9: {'name': 'Amazon Prime Video', 'color': 'cyan'},
-    337: {'name': 'Disney+', 'color': 'blue'},
-    15: {'name': 'Hulu', 'color': 'lime'},
-    1899: {'name': 'Max', 'color': 'purple'},  # HBO Max renamed to Max
-    387: {'name': 'Peacock', 'color': 'yellow'},
-    531: {'name': 'Paramount+', 'color': 'dodgerblue'},
-    350: {'name': 'Apple TV+', 'color': 'gray'},
-    283: {'name': 'Crunchyroll', 'color': 'orange'},
-    386: {'name': 'Peacock Premium', 'color': 'yellow'},
-    2: {'name': 'Apple iTunes', 'color': 'pink'},
-    3: {'name': 'Google Play Movies', 'color': 'lime'},
-    10: {'name': 'Amazon Video', 'color': 'orange'},
-    192: {'name': 'YouTube', 'color': 'red'},
-    188: {'name': 'YouTube Premium', 'color': 'red'},
-    307: {'name': 'Showtime', 'color': 'red'},
-    37: {'name': 'Showtime Amazon Channel', 'color': 'red'},
-    43: {'name': 'Starz', 'color': 'gold'},
-    230: {'name': 'Starz Play Amazon Channel', 'color': 'gold'},
-    73: {'name': 'Tubi TV', 'color': 'orange'},
-    300: {'name': 'Pluto TV', 'color': 'yellow'},
-    257: {'name': 'fuboTV', 'color': 'orange'},
-    393: {'name': 'Freevee', 'color': 'lime'},
-    207: {'name': 'The Roku Channel', 'color': 'purple'},
-    613: {'name': 'BritBox', 'color': 'red'},
-    191: {'name': 'Kanopy', 'color': 'yellow'},
-    546: {'name': 'AMC+', 'color': 'red'},
-    526: {'name': 'AMC', 'color': 'red'},
-    1770: {'name': 'Plex', 'color': 'orange'},
-    538: {'name': 'Plex Channel', 'color': 'orange'},
-    582: {'name': 'Bet+', 'color': 'purple'},
-}
+def get_kids_animation(page=1):
+    """Get family-friendly animated movies (kids under 12)"""
+    return fetch_json("/discover/movie", {
+        'with_genres': '16,10751',  # Animation + Family
+        'certification_country': 'US',
+        'certification.lte': 'PG',
+        'sort_by': 'popularity.desc',
+        'page': page,
+        'vote_count.gte': 50
+    })
+
+def get_kids_tvshows(page=1):
+    """Get family-friendly TV shows"""
+    return fetch_json("/discover/tv", {
+        'with_genres': '10762,16',  # Kids + Animation
+        'sort_by': 'popularity.desc',
+        'page': page
+    })
+
+def get_family_movies(page=1):
+    """Get family genre movies"""
+    return fetch_json("/discover/movie", {
+        'with_genres': '10751',  # Family genre
+        'sort_by': 'popularity.desc',
+        'page': page
+    })
+
+def get_disney_style_movies(page=1):
+    """Get Disney-style family animation"""
+    return fetch_json("/discover/movie", {
+        'with_genres': '16,10751',
+        'with_companies': '2|3|521',  # Disney, Pixar, DreamWorks
+        'sort_by': 'popularity.desc',
+        'page': page
+    })

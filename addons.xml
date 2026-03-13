@@ -1,16 +1,18 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <addons>
-    <addon id="plugin.video.orion" name="Orion" version="2.5.2" provider-name="zeus768">
+    <!-- Main Addons -->
+    <addon id="plugin.video.orion" name="Orion" version="3.1.0" provider-name="zeus768">
         <requires>
             <import addon="xbmc.python" version="3.0.1"/>
-            <import addon="script.module.requests" version="2.25.0"/>
+            <import addon="script.module.requests" version="2.32.5"/>
+            <import addon="script.module.resolveurl" version="5.1.86" optional="true"/>
         </requires>
         <extension point="xbmc.python.pluginsource" library="main.py">
             <provides>video</provides>
         </extension>
         <extension point="xbmc.addon.metadata">
             <summary lang="en">Orion Media Explorer</summary>
-            <description lang="en">Orion v2.4.0 - Ultimate streaming addon. Torrent sources: Torrentio, YTS, EZTV, 1337x, PirateBay. Direct streams: VidSrc, HydraHD, FlickyStream, Cineby. Supports Real-Debrid, Premiumize, AllDebrid. TMDB metadata with quality filtering.</description>
+            <description lang="en">Orion v3.1.0 - Complete media addon with multiple torrent scrapers (Torrentio, MediaFusion, Jackettio, Orionoid), Real-Debrid, Premiumize, AllDebrid, Trakt integration with scrobbling, watchlists and liked lists, ResolveURL support, watch history, favorites, Kids Zone, and auto-play next episode.</description>
             <platform>all</platform>
             <license>GPL-3.0</license>
             <assets>
@@ -19,7 +21,167 @@
             </assets>
         </extension>
     </addon>
-    <addon id="repository.zeus768" name="Zeus768 Repository" version="1.0.1" provider-name="zeus768">
+    <addon id="plugin.program.theaccountant" name="The Accountant" version="3.9.6" provider-name="zeus768">
+        <requires>
+            <import addon="xbmc.python" version="3.0.0"/>
+        </requires>
+        <extension point="xbmc.python.pluginsource" library="main.py">
+            <provides>executable</provides>
+        </extension>
+        <extension point="xbmc.addon.metadata">
+            <summary lang="en">The Accountant: Master Pro Suite</summary>
+            <description lang="en">v3.9.6: FULL FEATURES - Speed Optimizer, Scheduled Auto-Clean, RD/PM/AD/Trakt/TMDB Auth, IPTV Vault, Favourites Vault, USB Backup, Repair Tools, Cache and Package Cleaner.</description>
+            <platform>all</platform>
+            <assets>
+                <icon>icon.png</icon>
+                <fanart>fanart.jpg</fanart>
+            </assets>
+        </extension>
+    </addon>
+    <addon id="plugin.video.strikezone" name="Strike Zone" version="1.2.0" provider-name="zeus768">
+        <requires>
+            <import addon="xbmc.python" version="3.0.0"/>
+            <import addon="script.module.resolveurl" version="5.1.86"/>
+            <import addon="script.module.requests" version="2.32.5"/>
+            <import addon="script.module.beautifulsoup4" version="4.14.3"/>
+        </requires>
+        <extension point="xbmc.python.pluginsource" library="main.py">
+            <provides>video</provides>
+        </extension>
+        <extension point="xbmc.addon.metadata">
+            <summary lang="en">Strike Zone - Watch Fight Replays</summary>
+            <description lang="en">Watch UFC, MMA, Boxing, Kickboxing, and more fight replays. Features auto-scrape, infinite scroll, search, favourites, fight metadata and multiple video sources with ResolveURL.</description>
+            <platform>all</platform>
+            <license>GPL-3.0</license>
+            <assets>
+                <icon>icon.png</icon>
+                <fanart>fanart.jpg</fanart>
+            </assets>
+        </extension>
+    </addon>
+    
+    <!-- Script Modules (Dependencies) -->
+    <addon id="script.module.resolveurl" name="ResolveURL" version="5.1.86" provider-name="gujal">
+        <requires>
+            <import addon="xbmc.python" version="3.0.0"/>
+            <import addon="script.module.six" version="1.17.0"/>
+        </requires>
+        <extension point="xbmc.python.module" library="lib"/>
+        <extension point="xbmc.addon.metadata">
+            <summary lang="en">ResolveURL</summary>
+            <description lang="en">Resolves video URLs from various hosting sites</description>
+            <platform>all</platform>
+            <license>GPL-2.0</license>
+            <assets>
+                <icon>icon.png</icon>
+                <fanart>fanart.jpg</fanart>
+            </assets>
+        </extension>
+    </addon>
+    <addon id="script.module.requests" name="requests" version="2.32.5" provider-name="zeus768">
+        <requires>
+            <import addon="xbmc.python" version="3.0.0"/>
+            <import addon="script.module.certifi" version="2026.2.25"/>
+            <import addon="script.module.chardet" version="7.1.0"/>
+            <import addon="script.module.idna" version="3.11"/>
+            <import addon="script.module.urllib3" version="2.6.3"/>
+        </requires>
+        <extension point="xbmc.python.module" library="lib"/>
+        <extension point="xbmc.addon.metadata">
+            <summary lang="en">requests</summary>
+            <description lang="en">Python HTTP Requests for Humans</description>
+            <platform>all</platform>
+            <license>Apache-2.0</license>
+        </extension>
+    </addon>
+    <addon id="script.module.beautifulsoup4" name="BeautifulSoup4" version="4.14.3" provider-name="zeus768">
+        <requires>
+            <import addon="xbmc.python" version="3.0.0"/>
+            <import addon="script.module.soupsieve" version="2.8.3"/>
+        </requires>
+        <extension point="xbmc.python.module" library="lib"/>
+        <extension point="xbmc.addon.metadata">
+            <summary lang="en">BeautifulSoup4</summary>
+            <description lang="en">HTML/XML parser library</description>
+            <platform>all</platform>
+            <license>MIT</license>
+        </extension>
+    </addon>
+    <addon id="script.module.six" name="six" version="1.17.0" provider-name="zeus768">
+        <requires>
+            <import addon="xbmc.python" version="3.0.0"/>
+        </requires>
+        <extension point="xbmc.python.module" library="lib"/>
+        <extension point="xbmc.addon.metadata">
+            <summary lang="en">six</summary>
+            <description lang="en">Python 2 and 3 compatibility utilities</description>
+            <platform>all</platform>
+            <license>MIT</license>
+        </extension>
+    </addon>
+    <addon id="script.module.certifi" name="certifi" version="2026.2.25" provider-name="zeus768">
+        <requires>
+            <import addon="xbmc.python" version="3.0.0"/>
+        </requires>
+        <extension point="xbmc.python.module" library="lib"/>
+        <extension point="xbmc.addon.metadata">
+            <summary lang="en">certifi</summary>
+            <description lang="en">Python package for Mozilla CA Certificate Bundle</description>
+            <platform>all</platform>
+            <license>MPL-2.0</license>
+        </extension>
+    </addon>
+    <addon id="script.module.chardet" name="chardet" version="7.1.0" provider-name="zeus768">
+        <requires>
+            <import addon="xbmc.python" version="3.0.0"/>
+        </requires>
+        <extension point="xbmc.python.module" library="lib"/>
+        <extension point="xbmc.addon.metadata">
+            <summary lang="en">chardet</summary>
+            <description lang="en">Universal Character Encoding Detector</description>
+            <platform>all</platform>
+            <license>LGPL-2.1</license>
+        </extension>
+    </addon>
+    <addon id="script.module.idna" name="idna" version="3.11" provider-name="zeus768">
+        <requires>
+            <import addon="xbmc.python" version="3.0.0"/>
+        </requires>
+        <extension point="xbmc.python.module" library="lib"/>
+        <extension point="xbmc.addon.metadata">
+            <summary lang="en">idna</summary>
+            <description lang="en">Internationalized Domain Names in Applications</description>
+            <platform>all</platform>
+            <license>BSD-3-Clause</license>
+        </extension>
+    </addon>
+    <addon id="script.module.urllib3" name="urllib3" version="2.6.3" provider-name="zeus768">
+        <requires>
+            <import addon="xbmc.python" version="3.0.0"/>
+        </requires>
+        <extension point="xbmc.python.module" library="lib"/>
+        <extension point="xbmc.addon.metadata">
+            <summary lang="en">urllib3</summary>
+            <description lang="en">HTTP client library</description>
+            <platform>all</platform>
+            <license>MIT</license>
+        </extension>
+    </addon>
+    <addon id="script.module.soupsieve" name="soupsieve" version="2.8.3" provider-name="zeus768">
+        <requires>
+            <import addon="xbmc.python" version="3.0.0"/>
+        </requires>
+        <extension point="xbmc.python.module" library="lib"/>
+        <extension point="xbmc.addon.metadata">
+            <summary lang="en">soupsieve</summary>
+            <description lang="en">CSS Selectors for BeautifulSoup</description>
+            <platform>all</platform>
+            <license>MIT</license>
+        </extension>
+    </addon>
+    
+    <!-- Repository -->
+    <addon id="repository.zeus768" name="Zeus768 Repository" version="1.0.3" provider-name="zeus768">
         <requires>
             <import addon="xbmc.addon" version="17.9.910"/>
         </requires>
@@ -32,7 +194,7 @@
         </extension>
         <extension point="xbmc.addon.metadata">
             <summary>Zeus768 Repository</summary>
-            <description>Official Zeus768 repository for Kodi addons. Home of Orion Media Explorer.</description>
+            <description>Official Zeus768 repository for Kodi addons. Includes Orion, The Accountant, Strike Zone, and all dependencies.</description>
             <platform>all</platform>
             <assets>
                 <icon>icon.png</icon>

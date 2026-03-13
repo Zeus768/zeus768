@@ -1,6 +1,7 @@
 # -*- coding: utf-8 -*-
 """
-Trakt API Integration for Orion
+Trakt API Integration for Orion v3.0
+Includes scrobbling, watchlists, liked lists
 """
 
 import urllib.request
@@ -11,9 +12,90 @@ import ssl
 import xbmcgui
 import xbmcaddon
 import xbmc
+import threading
 
 ADDON = xbmcaddon.Addon()
 SSL_CONTEXT = ssl._create_unverified_context()
+
+class TraktScrobbler:
+    """Background scrobbler for Trakt"""
+    
+    def __init__(self, trakt_api):
+        self.trakt = trakt_api
+        self.is_playing = False
+        self.current_item = None
+        self.scrobble_thread = None
+    
+    def start_watching(self, media_type, ids, progress=0):
+        """Start watching - send start scrobble"""
+        if not self.trakt.is_authorized():
+            return
+        
+        self.is_playing = True
+        self.current_item = {'type': media_type, 'ids': ids}
+        
+        try:
+            data = self._build_scrobble_data(media_type, ids, progress)
+            self.trakt._request('/scrobble/start', data, method='POST')
+            xbmc.log(f"Trakt: Started scrobbling {media_type}", xbmc.LOGINFO)
+        except Exception as e:
+            xbmc.log(f"Trakt scrobble start error: {e}", xbmc.LOGWARNING)
+    
+    def pause_watching(self, progress=0):
+        """Pause watching - send pause scrobble"""
+        if not self.trakt.is_authorized() or not self.current_item:
+            return
+        
+        try:
+            data = self._build_scrobble_data(
+                self.current_item['type'], 
+                self.current_item['ids'], 
+                progress
+            )
+            self.trakt._request('/scrobble/pause', data, method='POST')
+        except Exception as e:
+            xbmc.log(f"Trakt scrobble pause error: {e}", xbmc.LOGWARNING)
+    
+    def stop_watching(self, progress=0):
+        """Stop watching - send stop scrobble"""
+        if not self.trakt.is_authorized() or not self.current_item:
+            return
+        
+        self.is_playing = False
+        
+        try:
+            data = self._build_scrobble_data(
+                self.current_item['type'], 
+                self.current_item['ids'], 
+                progress
+            )
+            self.trakt._request('/scrobble/stop', data, method='POST')
+            xbmc.log(f"Trakt: Stopped scrobbling at {progress}%", xbmc.LOGINFO)
+            
+            # Auto-mark as watched if progress > 80%
+            if progress >= 80:
+                self.trakt.mark_watched(
+                    self.current_item['type'], 
+                    self.current_item['ids']
+                )
+        except Exception as e:
+            xbmc.log(f"Trakt scrobble stop error: {e}", xbmc.LOGWARNING)
+        
+        self.current_item = None
+    
+    def _build_scrobble_data(self, media_type, ids, progress):
+        """Build scrobble request data"""
+        if media_type == 'movie':
+            return {
+                'movie': {'ids': ids},
+                'progress': progress
+            }
+        else:
+            return {
+                'episode': {'ids': ids},
+                'progress': progress
+            }
+
 
 class TraktAPI:
     """Trakt.tv API Integration"""
@@ -214,8 +296,102 @@ class TraktAPI:
         data = {key: [{'ids': ids}]}
         return self._request('/sync/watchlist', data, method='POST')
     
+    def remove_from_watchlist(self, media_type, ids):
+        """Remove item from watchlist"""
+        key = 'movies' if media_type == 'movie' else 'shows'
+        data = {key: [{'ids': ids}]}
+        return self._request('/sync/watchlist/remove', data, method='POST')
+    
     def mark_watched(self, media_type, ids):
         """Mark item as watched"""
         key = 'movies' if media_type == 'movie' else 'episodes'
         data = {key: [{'ids': ids}]}
         return self._request('/sync/history', data, method='POST')
+    
+    def get_liked_lists(self, page=1, limit=20):
+        """Get user's liked lists"""
+        endpoint = f"/users/likes/lists?page={page}&limit={limit}"
+        data = self._request(endpoint, auth=True)
+        if isinstance(data, list):
+            return data
+        return []
+    
+    def get_user_lists(self, page=1):
+        """Get user's custom lists"""
+        endpoint = f"/users/me/lists"
+        data = self._request(endpoint, auth=True)
+        if isinstance(data, list):
+            return data
+        return []
+    
+    def get_list_items(self, username, list_id, page=1, limit=50):
+        """Get items from a specific list"""
+        endpoint = f"/users/{username}/lists/{list_id}/items?page={page}&limit={limit}"
+        data = self._request(endpoint, auth=True)
+        if isinstance(data, list):
+            return data
+        return []
+    
+    def get_watchlist_movies(self, page=1):
+        """Get movies watchlist with pagination"""
+        endpoint = f"/users/me/watchlist/movies?page={page}&limit=20"
+        data = self._request(endpoint, auth=True)
+        if isinstance(data, list):
+            return data
+        return []
+    
+    def get_watchlist_shows(self, page=1):
+        """Get shows watchlist with pagination"""
+        endpoint = f"/users/me/watchlist/shows?page={page}&limit=20"
+        data = self._request(endpoint, auth=True)
+        if isinstance(data, list):
+            return data
+        return []
+    
+    def get_collection_movies(self, page=1):
+        """Get collected movies"""
+        endpoint = f"/users/me/collection/movies"
+        data = self._request(endpoint, auth=True)
+        if isinstance(data, list):
+            return data
+        return []
+    
+    def get_collection_shows(self, page=1):
+        """Get collected shows"""
+        endpoint = f"/users/me/collection/shows"
+        data = self._request(endpoint, auth=True)
+        if isinstance(data, list):
+            return data
+        return []
+    
+    def get_watched_movies(self):
+        """Get watched movies history"""
+        endpoint = "/users/me/watched/movies"
+        data = self._request(endpoint, auth=True)
+        if isinstance(data, list):
+            return data
+        return []
+    
+    def get_watched_shows(self):
+        """Get watched shows history"""
+        endpoint = "/users/me/watched/shows"
+        data = self._request(endpoint, auth=True)
+        if isinstance(data, list):
+            return data
+        return []
+    
+    def get_recommendations_movies(self, page=1):
+        """Get movie recommendations"""
+        endpoint = f"/recommendations/movies?page={page}&limit=20"
+        data = self._request(endpoint, auth=True)
+        if isinstance(data, list):
+            return data
+        return []
+    
+    def get_recommendations_shows(self, page=1):
+        """Get show recommendations"""
+        endpoint = f"/recommendations/shows?page={page}&limit=20"
+        data = self._request(endpoint, auth=True)
+        if isinstance(data, list):
+            return data
+        return []
