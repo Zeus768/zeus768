@@ -6,9 +6,19 @@
         <setting id="torrentio_enabled" type="bool" label="Enable Torrentio" default="true" visible="eq(-2,0)"/>
         <setting id="mediafusion_enabled" type="bool" label="Enable MediaFusion" default="false" visible="eq(-3,0)"/>
         <setting id="jackettio_enabled" type="bool" label="Enable Jackettio" default="false" visible="eq(-4,0)"/>
-        <setting id="coco_1337x" type="bool" label="Enable 1337x" default="true" visible="eq(-5,1)"/>
-        <setting id="coco_torrentdownloads" type="bool" label="Enable TorrentDownloads" default="true" visible="eq(-6,1)"/>
-        <setting id="coco_rarbg" type="bool" label="Enable RARBG" default="true" visible="eq(-7,1)"/>
+        <setting id="comet_enabled" type="bool" label="Enable Comet (Stremio)" default="true"/>
+        <setting id="coco_piratebay" type="bool" label="Enable PirateBay" default="true" visible="eq(-6,1)"/>
+        <setting id="coco_yts" type="bool" label="Enable YTS (Movies)" default="true" visible="eq(-7,1)"/>
+        <setting id="coco_eztv" type="bool" label="Enable EZTV (TV Shows)" default="true" visible="eq(-8,1)"/>
+        <setting id="coco_1337x" type="bool" label="Enable 1337x" default="true" visible="eq(-9,1)"/>
+        <setting id="coco_knaben" type="bool" label="Enable Knaben" default="true" visible="eq(-10,1)"/>
+        <setting id="coco_torrentgalaxy" type="bool" label="Enable TorrentGalaxy" default="true" visible="eq(-11,1)"/>
+        <setting id="coco_solidtorrents" type="bool" label="Enable SolidTorrents" default="true" visible="eq(-12,1)"/>
+        <setting id="coco_limetorrents" type="bool" label="Enable LimeTorrents" default="true" visible="eq(-13,1)"/>
+        <setting id="coco_btdig" type="bool" label="Enable BTDig" default="true" visible="eq(-14,1)"/>
+        <setting id="coco_nyaa" type="bool" label="Enable Nyaa (Anime)" default="true" visible="eq(-15,1)"/>
+        <setting id="coco_torrentdownloads" type="bool" label="Enable TorrentDownloads" default="true" visible="eq(-16,1)"/>
+        <setting id="coco_rarbg" type="bool" label="Enable RARBG" default="true" visible="eq(-17,1)"/>
     </category>
     <category label="Orionoid">
         <setting id="orionoid_authorize" type="action" label="Authorize Orionoid" action="RunPlugin(plugin://plugin.video.orion/?action=pair_orionoid)"/>

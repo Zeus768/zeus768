@@ -1,16 +1,25 @@
-Version 5.1.86 (Dec 18, 2022)
+Version 5.1.193 (Feb 23, 2026)
 - Code Base Changes:
     - None
 
 - Resolvers Added:
-    - None
+    - bunnycdn
+    - filekeeper
 
 - Resolvers Fixed/Updated:
-    - hexupload
-    - streeamsb
-    - uploadever
-    - uploadingsite
-    - voesx
+    - byse
+    - embedojo
+    - hdvid
+    - kinoger
+    - mixdrop
+    - savefiles
+    - streamembed
+    - streamix
+    - streamwish
+    - uqload
+    - videa
+    - vidnest
+    - voe
 
 - Resolvers Removed
     - None

@@ -24,18 +24,28 @@ from resolveurl.lib import helpers
 
 class MixDropResolver(ResolveUrl):
     name = 'MixDrop'
-    domains = ['mixdrop.co', 'mixdrop.to', 'mixdrop.sx', 'mixdrop.bz', 'mixdrop.ch',
-               'mixdrp.co', 'mixdrp.to']
-    pattern = r'(?://|\.)(mixdro?p\.(?:c[ho]|to|sx|bz))/(?:f|e)/(\w+)'
+    domains = [
+        'mixdrop.co', 'mixdrop.to', 'mixdrop.sx', 'mixdrop.bz', 'mixdrop.ch',
+        'mixdrp.co', 'mixdrp.to', 'mixdrop.gl', 'mixdrop.club', 'mixdroop.bz',
+        'mixdroop.co', 'mixdrop.vc', 'mixdrop.ag', 'mdy48tn97.com',
+        'md3b0j6hj.com', 'mdbekjwqa.pw', 'mdfx9dc8n.net', 'mixdropjmk.pw',
+        'mixdrop21.net', 'mixdrop.is', 'mixdrop.si', 'mixdrop23.net', 'mixdrop.nu',
+        'mixdrop.ms', 'mdzsmutpcvykb.net', 'mixdrop.ps', 'mxdrop.to', 'mixdrop.sb',
+        'mixdrop.my', 'm1xdrop.net', 'm1xdrop.com'
+    ]
+    pattern = r'(?://|\.)((?:mi*1*xdro*p\d*(?:jmk)?|md(?:3b0j6hj|bekjwqa|fx9dc8n|y48tn97|zsmutpcvykb))\.' \
+              r'(?:c[ho]m?|to|sx|bz|gl|club|vc|ag|pw|net|is|s[ib]|nu|m[sy]|ps))/(?:f|e)/(\w+)'
 
     def get_media_url(self, host, media_id):
+        if host.endswith('.club'):
+            host = host.replace('.club', '.co')
         web_url = self.get_url(host, media_id)
         rurl = 'https://{}/'.format(host)
         headers = {'Origin': rurl[:-1],
                    'Referer': rurl,
                    'User-Agent': common.RAND_UA}
         html = self.net.http_GET(web_url, headers=headers).content
-        r = re.search(r'location\s*=\s*"([^"]+)', html)
+        r = re.search(r'''location\s*=\s*["']([^'"]+)''', html)
         if r:
             web_url = 'https://{0}{1}'.format(host, r.group(1))
             html = self.net.http_GET(web_url, headers=headers).content

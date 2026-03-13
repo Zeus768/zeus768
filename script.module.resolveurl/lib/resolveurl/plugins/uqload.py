@@ -22,14 +22,19 @@ from resolveurl.lib import helpers
 
 class UQLoadResolver(ResolveGeneric):
     name = 'UQLoad'
-    domains = ['uqload.com']
-    pattern = r'(?://|\.)(uqload\.com)/(?:embed-)?([0-9a-zA-Z]+)'
+    domains = [
+        'uqload.com', 'uqload.co', 'uqload.io', 'uqload.to',
+        'uqload.ws', 'uqload.net', 'uqload.cx', 'uqload.bz',
+        'uqload.org', 'uqload.is'
+    ]
+    pattern = r'(?://|\.)(uqload\.(?:[ict]om?|[iw]s|net|cx|bz|org))/(?:embed-)?([0-9a-zA-Z]+)'
 
     def get_media_url(self, host, media_id):
         return helpers.get_media_url(
             self.get_url(host, media_id),
-            patterns=[r'''sources:\s*[['"]+(?P<url>[^'"]+)''']
+            patterns=[r'''sources:\s*\[['"](?P<url>[^'"]+)'''],
+            referer=False
         )
 
     def get_url(self, host, media_id):
-        return self._default_get_url(host, media_id, 'https://{host}/embed-{media_id}.html')
+        return self._default_get_url(host, media_id, 'https://uqload.is/embed-{media_id}.html')

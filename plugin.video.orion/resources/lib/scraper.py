@@ -575,6 +575,597 @@ def _search_rarbg_alternatives(query):
     
     return results
 
+# ============== PIRATEBAY API ==============
+
+def _search_piratebay(query):
+    """Search PirateBay via apibay.org API"""
+    results = []
+    
+    try:
+        encoded_query = urllib.parse.quote_plus(query)
+        url = f"https://apibay.org/q.php?q={encoded_query}&cat=0"
+        
+        xbmc.log(f"PirateBay search: {query}", xbmc.LOGINFO)
+        
+        data = _fetch_json(url, timeout=15)
+        
+        if not data or (isinstance(data, list) and len(data) == 1 and data[0].get('id') == '0'):
+            return results
+        
+        for item in data[:25]:
+            try:
+                name = item.get('name', '')
+                info_hash = item.get('info_hash', '')
+                size_bytes = int(item.get('size', 0))
+                seeders = int(item.get('seeders', 0))
+                
+                if not info_hash or info_hash == '0' or not name:
+                    continue
+                
+                magnet = _create_magnet(info_hash, name)
+                
+                if size_bytes > 1073741824:
+                    size = f"{size_bytes / 1073741824:.1f} GB"
+                elif size_bytes > 1048576:
+                    size = f"{size_bytes / 1048576:.0f} MB"
+                else:
+                    size = ''
+                
+                results.append({
+                    'name': name,
+                    'magnet': magnet,
+                    'quality': _detect_quality(name),
+                    'size': size,
+                    'seeds': seeders,
+                    'source': 'PirateBay',
+                    'source_type': 'coco',
+                    'debrid': True
+                })
+            except Exception as e:
+                continue
+        
+        xbmc.log(f"PirateBay found {len(results)} results", xbmc.LOGINFO)
+    except Exception as e:
+        xbmc.log(f"PirateBay error: {e}", xbmc.LOGWARNING)
+    
+    return results
+
+# ============== EZTV ==============
+
+def _search_eztv(query, imdb_id=None):
+    """Search EZTV API for TV shows"""
+    results = []
+    
+    try:
+        if imdb_id:
+            imdb_num = imdb_id.replace('tt', '')
+            url = f"https://eztv.re/api/get-torrents?imdb_id={imdb_num}&limit=30"
+        else:
+            url = f"https://eztv.re/api/get-torrents?limit=30"
+        
+        xbmc.log(f"EZTV search: {query}", xbmc.LOGINFO)
+        
+        data = _fetch_json(url, timeout=15)
+        
+        if not data or not data.get('torrents'):
+            return results
+        
+        search_lower = query.lower()
+        
+        for item in data.get('torrents', [])[:25]:
+            try:
+                name = item.get('title', item.get('filename', ''))
+                info_hash = item.get('hash', '')
+                size_bytes = int(item.get('size_bytes', 0))
+                seeders = int(item.get('seeds', 0))
+                magnet_url = item.get('magnet_url', '')
+                
+                if not name:
+                    continue
+                
+                if not any(w in name.lower() for w in search_lower.split()[:2]):
+                    continue
+                
+                if magnet_url:
+                    magnet = magnet_url
+                elif info_hash:
+                    magnet = _create_magnet(info_hash, name)
+                else:
+                    continue
+                
+                if size_bytes > 1073741824:
+                    size = f"{size_bytes / 1073741824:.1f} GB"
+                elif size_bytes > 1048576:
+                    size = f"{size_bytes / 1048576:.0f} MB"
+                else:
+                    size = ''
+                
+                results.append({
+                    'name': name,
+                    'magnet': magnet,
+                    'quality': _detect_quality(name),
+                    'size': size,
+                    'seeds': seeders,
+                    'source': 'EZTV',
+                    'source_type': 'coco',
+                    'debrid': True
+                })
+            except Exception as e:
+                continue
+        
+        xbmc.log(f"EZTV found {len(results)} results", xbmc.LOGINFO)
+    except Exception as e:
+        xbmc.log(f"EZTV error: {e}", xbmc.LOGWARNING)
+    
+    return results
+
+# ============== YTS ==============
+
+def _search_yts(query):
+    """Search YTS API for movies"""
+    results = []
+    
+    try:
+        encoded_query = urllib.parse.quote_plus(query)
+        url = f"https://yts.mx/api/v2/list_movies.json?query_term={encoded_query}&limit=20&sort_by=seeds"
+        
+        xbmc.log(f"YTS search: {query}", xbmc.LOGINFO)
+        
+        data = _fetch_json(url, timeout=15)
+        
+        if not data or data.get('status') != 'ok':
+            return results
+        
+        movies = data.get('data', {}).get('movies', [])
+        
+        for movie in movies:
+            try:
+                movie_title = movie.get('title_long', movie.get('title', ''))
+                
+                for torrent in movie.get('torrents', []):
+                    info_hash = torrent.get('hash', '')
+                    quality = torrent.get('quality', '')
+                    size = torrent.get('size', '')
+                    seeds = int(torrent.get('seeds', 0))
+                    codec = torrent.get('video_codec', '')
+                    torrent_type = torrent.get('type', '')
+                    
+                    if not info_hash:
+                        continue
+                    
+                    name = f"{movie_title} [{quality}] [{codec}] [{torrent_type}] - YTS"
+                    magnet = _create_magnet(info_hash, name)
+                    
+                    q = quality if quality in ['2160p', '1080p', '720p'] else _detect_quality(quality)
+                    
+                    results.append({
+                        'name': name,
+                        'magnet': magnet,
+                        'quality': q,
+                        'size': size,
+                        'seeds': seeds,
+                        'source': 'YTS',
+                        'source_type': 'coco',
+                        'debrid': True
+                    })
+            except Exception as e:
+                continue
+        
+        xbmc.log(f"YTS found {len(results)} results", xbmc.LOGINFO)
+    except Exception as e:
+        xbmc.log(f"YTS error: {e}", xbmc.LOGWARNING)
+    
+    return results
+
+# ============== KNABEN ==============
+
+def _search_knaben(query):
+    """Search Knaben torrent database API"""
+    results = []
+    
+    try:
+        url = "https://knaben.eu/api"
+        post_data = json.dumps({
+            "search_type": "torrent",
+            "search_field": "title",
+            "query": query,
+            "order_by": "seeders",
+            "order_direction": "desc",
+            "hide_unsafe": True,
+            "limit": 25
+        }).encode('utf-8')
+        
+        xbmc.log(f"Knaben search: {query}", xbmc.LOGINFO)
+        
+        req = urllib.request.Request(url, data=post_data, headers={
+            'User-Agent': 'Orion Kodi Addon/3.0',
+            'Content-Type': 'application/json',
+            'Accept': 'application/json',
+        })
+        
+        with urllib.request.urlopen(req, context=SSL_CONTEXT, timeout=15) as response:
+            data = json.loads(response.read().decode('utf-8'))
+        
+        if not data or 'hits' not in data:
+            return results
+        
+        for item in data.get('hits', [])[:25]:
+            try:
+                hit = item.get('_source', item)
+                name = hit.get('title', '')
+                info_hash = hit.get('infohash', '')
+                size_bytes = int(hit.get('size', 0))
+                seeders = int(hit.get('seeders', 0))
+                
+                if not info_hash or not name:
+                    continue
+                
+                magnet = _create_magnet(info_hash, name)
+                
+                if size_bytes > 1073741824:
+                    size = f"{size_bytes / 1073741824:.1f} GB"
+                elif size_bytes > 1048576:
+                    size = f"{size_bytes / 1048576:.0f} MB"
+                else:
+                    size = ''
+                
+                results.append({
+                    'name': name,
+                    'magnet': magnet,
+                    'quality': _detect_quality(name),
+                    'size': size,
+                    'seeds': seeders,
+                    'source': 'Knaben',
+                    'source_type': 'coco',
+                    'debrid': True
+                })
+            except Exception as e:
+                continue
+        
+        xbmc.log(f"Knaben found {len(results)} results", xbmc.LOGINFO)
+    except Exception as e:
+        xbmc.log(f"Knaben error: {e}", xbmc.LOGWARNING)
+    
+    return results
+
+# ============== SOLIDTORRENTS ==============
+
+def _search_solidtorrents(query):
+    """Search SolidTorrents API"""
+    results = []
+    
+    try:
+        encoded_query = urllib.parse.quote_plus(query)
+        url = f"https://solidtorrents.to/api/v1/search?q={encoded_query}&category=video&sort=seeders"
+        
+        xbmc.log(f"SolidTorrents search: {query}", xbmc.LOGINFO)
+        
+        data = _fetch_json(url, timeout=15)
+        
+        if not data or 'results' not in data:
+            return results
+        
+        for item in data.get('results', [])[:25]:
+            try:
+                name = item.get('title', '')
+                info_hash = item.get('infohash', '')
+                magnet_url = item.get('magnet', '')
+                size_bytes = int(item.get('size', 0))
+                
+                swarm = item.get('swarm', {})
+                seeders = int(swarm.get('seeders', 0)) if isinstance(swarm, dict) else 0
+                
+                if not name:
+                    continue
+                
+                if magnet_url:
+                    magnet = magnet_url
+                elif info_hash:
+                    magnet = _create_magnet(info_hash, name)
+                else:
+                    continue
+                
+                if size_bytes > 1073741824:
+                    size = f"{size_bytes / 1073741824:.1f} GB"
+                elif size_bytes > 1048576:
+                    size = f"{size_bytes / 1048576:.0f} MB"
+                else:
+                    size = ''
+                
+                results.append({
+                    'name': name,
+                    'magnet': magnet,
+                    'quality': _detect_quality(name),
+                    'size': size,
+                    'seeds': seeders,
+                    'source': 'SolidTorrents',
+                    'source_type': 'coco',
+                    'debrid': True
+                })
+            except Exception as e:
+                continue
+        
+        xbmc.log(f"SolidTorrents found {len(results)} results", xbmc.LOGINFO)
+    except Exception as e:
+        xbmc.log(f"SolidTorrents error: {e}", xbmc.LOGWARNING)
+    
+    return results
+
+# ============== BTDIG ==============
+
+def _search_btdig(query):
+    """Search BTDig torrent search engine"""
+    results = []
+    
+    try:
+        encoded_query = urllib.parse.quote_plus(query)
+        url = f"https://btdig.com/search?q={encoded_query}&order=0"
+        
+        xbmc.log(f"BTDig search: {query}", xbmc.LOGINFO)
+        
+        html = _fetch_page(url, timeout=15)
+        
+        if not html:
+            return results
+        
+        # Parse results - BTDig has magnet links and info hashes
+        pattern = r'magnet:\?xt=urn:btih:([a-fA-F0-9]{40})[^"\'<>\s]*'
+        magnets = re.findall(pattern, html)
+        
+        # Also extract names
+        name_pattern = r'<div class="one_result">.*?<div class="torrent_name"[^>]*>.*?<a[^>]*>([^<]+)</a>'
+        names = re.findall(name_pattern, html, re.DOTALL)
+        
+        # Fallback: extract full magnet links
+        full_magnet_pattern = r'(magnet:\?xt=urn:btih:[^"\'<>\s]+)'
+        full_magnets = re.findall(full_magnet_pattern, html, re.IGNORECASE)
+        
+        search_lower = query.lower()
+        
+        for magnet in full_magnets[:20]:
+            dn_match = re.search(r'dn=([^&]+)', magnet)
+            if dn_match:
+                name = urllib.parse.unquote_plus(dn_match.group(1))
+            else:
+                continue
+            
+            if not any(w in name.lower() for w in search_lower.split()[:2]):
+                continue
+            
+            results.append({
+                'name': name,
+                'magnet': magnet,
+                'quality': _detect_quality(name),
+                'size': '',
+                'seeds': 0,
+                'source': 'BTDig',
+                'source_type': 'coco',
+                'debrid': True
+            })
+        
+        xbmc.log(f"BTDig found {len(results)} results", xbmc.LOGINFO)
+    except Exception as e:
+        xbmc.log(f"BTDig error: {e}", xbmc.LOGWARNING)
+    
+    return results
+
+# ============== LIMETORRENTS ==============
+
+def _search_limetorrents(query):
+    """Search LimeTorrents"""
+    results = []
+    
+    try:
+        encoded_query = urllib.parse.quote_plus(query)
+        url = f"https://www.limetorrents.lol/search/all/{encoded_query}/seeds/1/"
+        
+        xbmc.log(f"LimeTorrents search: {query}", xbmc.LOGINFO)
+        
+        html = _fetch_page(url, timeout=15)
+        
+        if not html:
+            return results
+        
+        # Extract info hash links and names
+        pattern = r'href="/torrent-download/([a-fA-F0-9]{40})[^"]*"[^>]*>([^<]+)</a>'
+        matches = re.findall(pattern, html)
+        
+        # Fallback: extract magnet links directly
+        magnet_pattern = r'(magnet:\?xt=urn:btih:[^"\'<>\s]+)'
+        magnets = re.findall(magnet_pattern, html, re.IGNORECASE)
+        
+        search_lower = query.lower()
+        
+        for magnet in magnets[:20]:
+            dn_match = re.search(r'dn=([^&]+)', magnet)
+            if dn_match:
+                name = urllib.parse.unquote_plus(dn_match.group(1))
+            else:
+                continue
+            
+            if not any(w in name.lower() for w in search_lower.split()[:2]):
+                continue
+            
+            results.append({
+                'name': name,
+                'magnet': magnet,
+                'quality': _detect_quality(name),
+                'size': '',
+                'seeds': 0,
+                'source': 'LimeTorrents',
+                'source_type': 'coco',
+                'debrid': True
+            })
+        
+        xbmc.log(f"LimeTorrents found {len(results)} results", xbmc.LOGINFO)
+    except Exception as e:
+        xbmc.log(f"LimeTorrents error: {e}", xbmc.LOGWARNING)
+    
+    return results
+
+# ============== TORRENTGALAXY ==============
+
+def _search_torrentgalaxy(query):
+    """Search TorrentGalaxy"""
+    results = []
+    
+    try:
+        encoded_query = urllib.parse.quote_plus(query)
+        url = f"https://torrentgalaxy.to/torrents.php?search={encoded_query}&sort=seeders&order=desc"
+        
+        xbmc.log(f"TorrentGalaxy search: {query}", xbmc.LOGINFO)
+        
+        html = _fetch_page(url, timeout=15)
+        
+        if not html:
+            return results
+        
+        magnet_pattern = r'(magnet:\?xt=urn:btih:[^"\'<>\s]+)'
+        magnets = re.findall(magnet_pattern, html, re.IGNORECASE)
+        
+        search_lower = query.lower()
+        
+        for magnet in magnets[:20]:
+            dn_match = re.search(r'dn=([^&]+)', magnet)
+            if dn_match:
+                name = urllib.parse.unquote_plus(dn_match.group(1))
+            else:
+                continue
+            
+            if not any(w in name.lower() for w in search_lower.split()[:2]):
+                continue
+            
+            # Try to extract size from nearby HTML
+            size = ''
+            seeds = 0
+            
+            results.append({
+                'name': name,
+                'magnet': magnet,
+                'quality': _detect_quality(name),
+                'size': size,
+                'seeds': seeds,
+                'source': 'TorrentGalaxy',
+                'source_type': 'coco',
+                'debrid': True
+            })
+        
+        xbmc.log(f"TorrentGalaxy found {len(results)} results", xbmc.LOGINFO)
+    except Exception as e:
+        xbmc.log(f"TorrentGalaxy error: {e}", xbmc.LOGWARNING)
+    
+    return results
+
+# ============== NYAA (ANIME) ==============
+
+def _search_nyaa(query):
+    """Search Nyaa.si for anime torrents"""
+    results = []
+    
+    try:
+        encoded_query = urllib.parse.quote_plus(query)
+        url = f"https://nyaa.si/?f=0&c=0_0&q={encoded_query}&s=seeders&o=desc"
+        
+        xbmc.log(f"Nyaa search: {query}", xbmc.LOGINFO)
+        
+        html = _fetch_page(url, timeout=15)
+        
+        if not html:
+            return results
+        
+        magnet_pattern = r'(magnet:\?xt=urn:btih:[^"\'<>\s]+)'
+        magnets = re.findall(magnet_pattern, html, re.IGNORECASE)
+        
+        for magnet in magnets[:20]:
+            dn_match = re.search(r'dn=([^&]+)', magnet)
+            if dn_match:
+                name = urllib.parse.unquote_plus(dn_match.group(1))
+            else:
+                continue
+            
+            results.append({
+                'name': name,
+                'magnet': magnet,
+                'quality': _detect_quality(name),
+                'size': '',
+                'seeds': 0,
+                'source': 'Nyaa',
+                'source_type': 'coco',
+                'debrid': True
+            })
+        
+        xbmc.log(f"Nyaa found {len(results)} results", xbmc.LOGINFO)
+    except Exception as e:
+        xbmc.log(f"Nyaa error: {e}", xbmc.LOGWARNING)
+    
+    return results
+
+# ============== COMET (STREMIO) ==============
+
+def _search_comet(imdb_id, media_type='movie', season=None, episode=None):
+    """Search Comet Stremio addon"""
+    results = []
+    
+    if not imdb_id:
+        return results
+    
+    try:
+        base_url = "https://comet.elfhosted.com"
+        
+        if media_type == 'movie':
+            url = f"{base_url}/stream/movie/{imdb_id}.json"
+        else:
+            url = f"{base_url}/stream/series/{imdb_id}:{season}:{episode}.json"
+        
+        xbmc.log(f"Comet search: {url}", xbmc.LOGINFO)
+        
+        data = _fetch_json(url, timeout=20)
+        
+        if not data or 'streams' not in data:
+            return results
+        
+        for stream in data.get('streams', []):
+            try:
+                title = stream.get('title', '')
+                info_hash = stream.get('infoHash', '')
+                
+                if not info_hash:
+                    continue
+                
+                lines = title.split('\n')
+                name = lines[0] if lines else 'Unknown'
+                
+                quality = _detect_quality(name)
+                size = ''
+                seeds = 0
+                
+                for line in lines:
+                    if 'GB' in line or 'MB' in line:
+                        size_match = re.search(r'([\d.]+\s*[GM]B)', line)
+                        if size_match:
+                            size = size_match.group(1)
+                
+                magnet = _create_magnet(info_hash, name)
+                
+                results.append({
+                    'name': name,
+                    'magnet': magnet,
+                    'quality': quality,
+                    'size': size,
+                    'seeds': seeds,
+                    'source': 'Comet',
+                    'source_type': 'torrentio',
+                    'debrid': True
+                })
+            except Exception as e:
+                continue
+        
+        xbmc.log(f"Comet found {len(results)} results", xbmc.LOGINFO)
+    except Exception as e:
+        xbmc.log(f"Comet error: {e}", xbmc.LOGWARNING)
+    
+    return results
+
 # ============== MAIN SEARCH FUNCTIONS ==============
 
 def get_imdb_from_tmdb(tmdb_id, media_type='movie'):
@@ -661,11 +1252,36 @@ def search_movie(title, year='', tmdb_id=None, progress=None):
     
     # COCO SCRAPERS MODE
     else:
-        # 1. 1337x
-        if ADDON.getSetting('coco_1337x') == 'true':
+        # 1. PirateBay API
+        if ADDON.getSetting('coco_piratebay') != 'false':
             if progress:
-                progress.update(20, "Searching 1337x...")
-            
+                progress.update(10, "Searching PirateBay...")
+            pb_results = _search_piratebay(search_query)
+            for r in pb_results:
+                hash_match = re.search(r'btih:([a-fA-F0-9]{40})', r.get('magnet', ''), re.IGNORECASE)
+                if hash_match:
+                    h = hash_match.group(1).upper()
+                    if h not in seen_hashes:
+                        seen_hashes.add(h)
+                        results.append(r)
+        
+        # 2. YTS (movies only)
+        if ADDON.getSetting('coco_yts') != 'false':
+            if progress:
+                progress.update(20, "Searching YTS...")
+            yts_results = _search_yts(search_query)
+            for r in yts_results:
+                hash_match = re.search(r'btih:([a-fA-F0-9]{40})', r.get('magnet', ''), re.IGNORECASE)
+                if hash_match:
+                    h = hash_match.group(1).upper()
+                    if h not in seen_hashes:
+                        seen_hashes.add(h)
+                        results.append(r)
+        
+        # 3. 1337x
+        if ADDON.getSetting('coco_1337x') != 'false':
+            if progress:
+                progress.update(30, "Searching 1337x...")
             try:
                 query = urllib.parse.quote_plus(search_query)
                 url = f"https://1337x.to/search/{query}/1/"
@@ -677,11 +1293,75 @@ def search_movie(title, year='', tmdb_id=None, progress=None):
             except Exception as e:
                 xbmc.log(f"1337x error: {e}", xbmc.LOGWARNING)
         
-        # 2. TorrentDownloads
-        if ADDON.getSetting('coco_torrentdownloads') == 'true':
+        # 4. Knaben
+        if ADDON.getSetting('coco_knaben') != 'false':
             if progress:
-                progress.update(50, "Searching TorrentDownloads...")
-            
+                progress.update(40, "Searching Knaben...")
+            knaben_results = _search_knaben(search_query)
+            for r in knaben_results:
+                hash_match = re.search(r'btih:([a-fA-F0-9]{40})', r.get('magnet', ''), re.IGNORECASE)
+                if hash_match:
+                    h = hash_match.group(1).upper()
+                    if h not in seen_hashes:
+                        seen_hashes.add(h)
+                        results.append(r)
+        
+        # 5. TorrentGalaxy
+        if ADDON.getSetting('coco_torrentgalaxy') != 'false':
+            if progress:
+                progress.update(50, "Searching TorrentGalaxy...")
+            tg_results = _search_torrentgalaxy(search_query)
+            for r in tg_results:
+                hash_match = re.search(r'btih:([a-fA-F0-9]{40})', r.get('magnet', ''), re.IGNORECASE)
+                if hash_match:
+                    h = hash_match.group(1).upper()
+                    if h not in seen_hashes:
+                        seen_hashes.add(h)
+                        results.append(r)
+        
+        # 6. SolidTorrents
+        if ADDON.getSetting('coco_solidtorrents') != 'false':
+            if progress:
+                progress.update(55, "Searching SolidTorrents...")
+            st_results = _search_solidtorrents(search_query)
+            for r in st_results:
+                hash_match = re.search(r'btih:([a-fA-F0-9]{40})', r.get('magnet', ''), re.IGNORECASE)
+                if hash_match:
+                    h = hash_match.group(1).upper()
+                    if h not in seen_hashes:
+                        seen_hashes.add(h)
+                        results.append(r)
+        
+        # 7. LimeTorrents
+        if ADDON.getSetting('coco_limetorrents') != 'false':
+            if progress:
+                progress.update(60, "Searching LimeTorrents...")
+            lt_results = _search_limetorrents(search_query)
+            for r in lt_results:
+                hash_match = re.search(r'btih:([a-fA-F0-9]{40})', r.get('magnet', ''), re.IGNORECASE)
+                if hash_match:
+                    h = hash_match.group(1).upper()
+                    if h not in seen_hashes:
+                        seen_hashes.add(h)
+                        results.append(r)
+        
+        # 8. BTDig
+        if ADDON.getSetting('coco_btdig') != 'false':
+            if progress:
+                progress.update(65, "Searching BTDig...")
+            btdig_results = _search_btdig(search_query)
+            for r in btdig_results:
+                hash_match = re.search(r'btih:([a-fA-F0-9]{40})', r.get('magnet', ''), re.IGNORECASE)
+                if hash_match:
+                    h = hash_match.group(1).upper()
+                    if h not in seen_hashes:
+                        seen_hashes.add(h)
+                        results.append(r)
+        
+        # 9. TorrentDownloads
+        if ADDON.getSetting('coco_torrentdownloads') != 'false':
+            if progress:
+                progress.update(70, "Searching TorrentDownloads...")
             try:
                 query = urllib.parse.quote_plus(search_query)
                 url = f"https://www.torrentdownloads.pro/search/?search={query}"
@@ -700,11 +1380,10 @@ def search_movie(title, year='', tmdb_id=None, progress=None):
             except Exception as e:
                 xbmc.log(f"TorrentDownloads error: {e}", xbmc.LOGWARNING)
         
-        # 3. RARBG
-        if ADDON.getSetting('coco_rarbg') == 'true':
+        # 10. RARBG
+        if ADDON.getSetting('coco_rarbg') != 'false':
             if progress:
-                progress.update(70, "Searching RARBG...")
-            
+                progress.update(75, "Searching RARBG...")
             rarbg_results = _search_rarbg_alternatives(search_query)
             for r in rarbg_results:
                 hash_match = re.search(r'btih:([a-fA-F0-9]{40})', r.get('magnet', ''), re.IGNORECASE)
@@ -713,6 +1392,19 @@ def search_movie(title, year='', tmdb_id=None, progress=None):
                     if h not in seen_hashes:
                         seen_hashes.add(h)
                         results.append(r)
+    
+    # Also search Comet if IMDB is available (works in both modes)
+    if imdb_id and ADDON.getSetting('comet_enabled') != 'false':
+        if progress:
+            progress.update(80, "Searching Comet...")
+        comet_results = _search_comet(imdb_id, 'movie')
+        for r in comet_results:
+            hash_match = re.search(r'btih:([a-fA-F0-9]{40})', r.get('magnet', ''), re.IGNORECASE)
+            if hash_match:
+                h = hash_match.group(1).upper()
+                if h not in seen_hashes:
+                    seen_hashes.add(h)
+                    results.append(r)
     
     # Get magnets for results that need them (1337x)
     if progress:
@@ -806,11 +1498,36 @@ def search_episode(title, season, episode, tmdb_id=None, progress=None):
     
     # COCO SCRAPERS MODE
     else:
-        # 1. 1337x
-        if ADDON.getSetting('coco_1337x') == 'true':
+        # 1. PirateBay API
+        if ADDON.getSetting('coco_piratebay') != 'false':
             if progress:
-                progress.update(20, "Searching 1337x...")
-            
+                progress.update(10, "Searching PirateBay...")
+            pb_results = _search_piratebay(search_query)
+            for r in pb_results:
+                hash_match = re.search(r'btih:([a-fA-F0-9]{40})', r.get('magnet', ''), re.IGNORECASE)
+                if hash_match:
+                    h = hash_match.group(1).upper()
+                    if h not in seen_hashes:
+                        seen_hashes.add(h)
+                        results.append(r)
+        
+        # 2. EZTV (TV specific)
+        if ADDON.getSetting('coco_eztv') != 'false':
+            if progress:
+                progress.update(20, "Searching EZTV...")
+            eztv_results = _search_eztv(search_query, imdb_id)
+            for r in eztv_results:
+                hash_match = re.search(r'btih:([a-fA-F0-9]{40})', r.get('magnet', ''), re.IGNORECASE)
+                if hash_match:
+                    h = hash_match.group(1).upper()
+                    if h not in seen_hashes:
+                        seen_hashes.add(h)
+                        results.append(r)
+        
+        # 3. 1337x
+        if ADDON.getSetting('coco_1337x') != 'false':
+            if progress:
+                progress.update(30, "Searching 1337x...")
             try:
                 query = urllib.parse.quote_plus(search_query)
                 url = f"https://1337x.to/search/{query}/1/"
@@ -822,11 +1539,75 @@ def search_episode(title, season, episode, tmdb_id=None, progress=None):
             except Exception as e:
                 xbmc.log(f"1337x error: {e}", xbmc.LOGWARNING)
         
-        # 2. TorrentDownloads
-        if ADDON.getSetting('coco_torrentdownloads') == 'true':
+        # 4. Knaben
+        if ADDON.getSetting('coco_knaben') != 'false':
             if progress:
-                progress.update(50, "Searching TorrentDownloads...")
-            
+                progress.update(40, "Searching Knaben...")
+            knaben_results = _search_knaben(search_query)
+            for r in knaben_results:
+                hash_match = re.search(r'btih:([a-fA-F0-9]{40})', r.get('magnet', ''), re.IGNORECASE)
+                if hash_match:
+                    h = hash_match.group(1).upper()
+                    if h not in seen_hashes:
+                        seen_hashes.add(h)
+                        results.append(r)
+        
+        # 5. TorrentGalaxy
+        if ADDON.getSetting('coco_torrentgalaxy') != 'false':
+            if progress:
+                progress.update(50, "Searching TorrentGalaxy...")
+            tg_results = _search_torrentgalaxy(search_query)
+            for r in tg_results:
+                hash_match = re.search(r'btih:([a-fA-F0-9]{40})', r.get('magnet', ''), re.IGNORECASE)
+                if hash_match:
+                    h = hash_match.group(1).upper()
+                    if h not in seen_hashes:
+                        seen_hashes.add(h)
+                        results.append(r)
+        
+        # 6. SolidTorrents
+        if ADDON.getSetting('coco_solidtorrents') != 'false':
+            if progress:
+                progress.update(55, "Searching SolidTorrents...")
+            st_results = _search_solidtorrents(search_query)
+            for r in st_results:
+                hash_match = re.search(r'btih:([a-fA-F0-9]{40})', r.get('magnet', ''), re.IGNORECASE)
+                if hash_match:
+                    h = hash_match.group(1).upper()
+                    if h not in seen_hashes:
+                        seen_hashes.add(h)
+                        results.append(r)
+        
+        # 7. LimeTorrents
+        if ADDON.getSetting('coco_limetorrents') != 'false':
+            if progress:
+                progress.update(60, "Searching LimeTorrents...")
+            lt_results = _search_limetorrents(search_query)
+            for r in lt_results:
+                hash_match = re.search(r'btih:([a-fA-F0-9]{40})', r.get('magnet', ''), re.IGNORECASE)
+                if hash_match:
+                    h = hash_match.group(1).upper()
+                    if h not in seen_hashes:
+                        seen_hashes.add(h)
+                        results.append(r)
+        
+        # 8. BTDig
+        if ADDON.getSetting('coco_btdig') != 'false':
+            if progress:
+                progress.update(65, "Searching BTDig...")
+            btdig_results = _search_btdig(search_query)
+            for r in btdig_results:
+                hash_match = re.search(r'btih:([a-fA-F0-9]{40})', r.get('magnet', ''), re.IGNORECASE)
+                if hash_match:
+                    h = hash_match.group(1).upper()
+                    if h not in seen_hashes:
+                        seen_hashes.add(h)
+                        results.append(r)
+        
+        # 9. TorrentDownloads
+        if ADDON.getSetting('coco_torrentdownloads') != 'false':
+            if progress:
+                progress.update(70, "Searching TorrentDownloads...")
             try:
                 query = urllib.parse.quote_plus(search_query)
                 url = f"https://www.torrentdownloads.pro/search/?search={query}"
@@ -845,11 +1626,10 @@ def search_episode(title, season, episode, tmdb_id=None, progress=None):
             except Exception as e:
                 xbmc.log(f"TorrentDownloads error: {e}", xbmc.LOGWARNING)
         
-        # 3. RARBG
-        if ADDON.getSetting('coco_rarbg') == 'true':
+        # 10. RARBG
+        if ADDON.getSetting('coco_rarbg') != 'false':
             if progress:
-                progress.update(70, "Searching RARBG...")
-            
+                progress.update(75, "Searching RARBG...")
             rarbg_results = _search_rarbg_alternatives(search_query)
             for r in rarbg_results:
                 hash_match = re.search(r'btih:([a-fA-F0-9]{40})', r.get('magnet', ''), re.IGNORECASE)
@@ -858,6 +1638,32 @@ def search_episode(title, season, episode, tmdb_id=None, progress=None):
                     if h not in seen_hashes:
                         seen_hashes.add(h)
                         results.append(r)
+        
+        # 11. Nyaa (anime)
+        if ADDON.getSetting('coco_nyaa') != 'false':
+            if progress:
+                progress.update(78, "Searching Nyaa...")
+            nyaa_results = _search_nyaa(search_query)
+            for r in nyaa_results:
+                hash_match = re.search(r'btih:([a-fA-F0-9]{40})', r.get('magnet', ''), re.IGNORECASE)
+                if hash_match:
+                    h = hash_match.group(1).upper()
+                    if h not in seen_hashes:
+                        seen_hashes.add(h)
+                        results.append(r)
+    
+    # Also search Comet if IMDB is available (works in both modes)
+    if imdb_id and ADDON.getSetting('comet_enabled') != 'false':
+        if progress:
+            progress.update(80, "Searching Comet...")
+        comet_results = _search_comet(imdb_id, 'tv', season, episode)
+        for r in comet_results:
+            hash_match = re.search(r'btih:([a-fA-F0-9]{40})', r.get('magnet', ''), re.IGNORECASE)
+            if hash_match:
+                h = hash_match.group(1).upper()
+                if h not in seen_hashes:
+                    seen_hashes.add(h)
+                    results.append(r)
     
     # Get magnets for results that need them
     if progress:
