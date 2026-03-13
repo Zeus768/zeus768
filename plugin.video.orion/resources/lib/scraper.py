@@ -1,7 +1,11 @@
 # -*- coding: utf-8 -*-
 """
-Torrent Scraper for Orion v3.0
-Supports: Orionoid, Torrentio, MediaFusion, Jackettio, 1337x, TorrentDownloads, RARBG
+Torrent Scraper for Orion v3.3.0
+Supports: Orionoid, Torrentio, MediaFusion, Jackettio, Comet,
+PirateBay, YTS, EZTV, 1337x, Knaben, TorrentGalaxy, SolidTorrents,
+BTDig, LimeTorrents, Nyaa, TorrentDownloads, RARBG,
+Rutor, RuTracker, Kinozal, NNM-Club,
+Torlock, GloDLS, MagnetDL, KickAss, TorrServer
 """
 
 import urllib.request
@@ -1166,6 +1170,679 @@ def _search_comet(imdb_id, media_type='movie', season=None, episode=None):
     
     return results
 
+# ============== RUTOR (Russian Public Tracker) ==============
+
+def _search_rutor(query):
+    """Search Rutor.info - public Russian torrent tracker"""
+    results = []
+    
+    try:
+        encoded_query = urllib.parse.quote(query)
+        url = f"http://rutor.info/search/0/0/010/0/{encoded_query}"
+        
+        xbmc.log(f"Rutor search: {query}", xbmc.LOGINFO)
+        
+        html = _fetch_page(url, timeout=15)
+        
+        if not html:
+            # Try mirror
+            url = f"http://rutor.is/search/0/0/010/0/{encoded_query}"
+            html = _fetch_page(url, timeout=15)
+        
+        if not html:
+            return results
+        
+        # Rutor has magnet links directly in the page
+        magnet_pattern = r'(magnet:\?xt=urn:btih:[^"\'<>\s]+)'
+        magnets = re.findall(magnet_pattern, html, re.IGNORECASE)
+        
+        # Extract sizes from table rows
+        size_pattern = r'class="col-[^"]*"[^>]*>(\d+[\.,]\d+\s*[GMKT]B)</td>'
+        sizes = re.findall(size_pattern, html, re.IGNORECASE)
+        
+        search_lower = query.lower()
+        
+        for i, magnet in enumerate(magnets[:25]):
+            dn_match = re.search(r'dn=([^&]+)', magnet)
+            if dn_match:
+                name = urllib.parse.unquote_plus(dn_match.group(1))
+            else:
+                # Try to extract from btih hash
+                hash_match = re.search(r'btih:([a-fA-F0-9]{40})', magnet)
+                if hash_match:
+                    name = f"Rutor-{hash_match.group(1)[:8]}"
+                else:
+                    continue
+            
+            size = sizes[i] if i < len(sizes) else ''
+            
+            results.append({
+                'name': name,
+                'magnet': magnet,
+                'quality': _detect_quality(name),
+                'size': size,
+                'seeds': 0,
+                'source': 'Rutor',
+                'source_type': 'russian',
+                'debrid': True
+            })
+        
+        xbmc.log(f"Rutor found {len(results)} results", xbmc.LOGINFO)
+    except Exception as e:
+        xbmc.log(f"Rutor error: {e}", xbmc.LOGWARNING)
+    
+    return results
+
+# ============== RUTRACKER (Russian Private Tracker) ==============
+
+def _search_rutracker(query):
+    """Search RuTracker.org - requires login credentials in settings"""
+    results = []
+    
+    username = ADDON.getSetting('rutracker_username')
+    password = ADDON.getSetting('rutracker_password')
+    
+    if not username or not password:
+        xbmc.log("RuTracker: No credentials configured", xbmc.LOGINFO)
+        return results
+    
+    try:
+        import http.cookiejar
+        
+        cookie_jar = http.cookiejar.CookieJar()
+        opener = urllib.request.build_opener(
+            urllib.request.HTTPCookieProcessor(cookie_jar),
+            urllib.request.HTTPSHandler(context=SSL_CONTEXT)
+        )
+        
+        # Login
+        login_url = "https://rutracker.org/forum/login.php"
+        login_data = urllib.parse.urlencode({
+            'login_username': username,
+            'login_password': password,
+            'login': '%C2%F5%EE%E4'
+        }).encode('utf-8')
+        
+        login_req = urllib.request.Request(login_url, data=login_data, headers={
+            'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36',
+            'Content-Type': 'application/x-www-form-urlencoded',
+            'Referer': 'https://rutracker.org/forum/index.php'
+        })
+        
+        opener.open(login_req, timeout=15)
+        
+        # Search
+        search_url = "https://rutracker.org/forum/tracker.php"
+        search_data = urllib.parse.urlencode({
+            'nm': query,
+            'o': '10',  # Sort by seeds
+            's': '2'    # Descending
+        }).encode('utf-8')
+        
+        search_req = urllib.request.Request(search_url, data=search_data, headers={
+            'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36',
+            'Content-Type': 'application/x-www-form-urlencoded',
+            'Referer': 'https://rutracker.org/forum/tracker.php'
+        })
+        
+        xbmc.log(f"RuTracker search: {query}", xbmc.LOGINFO)
+        
+        response = opener.open(search_req, timeout=20)
+        html = response.read().decode('windows-1251', errors='ignore')
+        
+        if not html:
+            return results
+        
+        # Parse results - extract topic IDs and names
+        # RuTracker format: <a ... href="viewtopic.php?t=TOPIC_ID">NAME</a>
+        row_pattern = r'<a[^>]*data-topic_id="(\d+)"[^>]*class="[^"]*tLink[^"]*"[^>]*>([^<]+)</a>'
+        matches = re.findall(row_pattern, html)
+        
+        # Extract sizes
+        size_pattern = r'<td class="[^"]*tor-size[^"]*"[^>]*>\s*<u>(\d+)</u>'
+        size_matches = re.findall(size_pattern, html)
+        
+        # Extract seeds  
+        seed_pattern = r'<td class="[^"]*seed[^"]*"[^>]*>\s*<b>(\d+)</b>'
+        seed_matches = re.findall(seed_pattern, html)
+        
+        for i, (topic_id, name) in enumerate(matches[:20]):
+            name = name.strip()
+            
+            # Get magnet link from topic page
+            try:
+                topic_url = f"https://rutracker.org/forum/viewtopic.php?t={topic_id}"
+                topic_req = urllib.request.Request(topic_url, headers={
+                    'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36'
+                })
+                topic_html = opener.open(topic_req, timeout=10).read().decode('windows-1251', errors='ignore')
+                
+                magnet_match = re.search(r'(magnet:\?xt=urn:btih:[^"\'<>\s]+)', topic_html)
+                if not magnet_match:
+                    continue
+                
+                magnet = magnet_match.group(1)
+                
+                size = ''
+                if i < len(size_matches):
+                    try:
+                        size_bytes = int(size_matches[i])
+                        if size_bytes > 1073741824:
+                            size = f"{size_bytes / 1073741824:.1f} GB"
+                        elif size_bytes > 1048576:
+                            size = f"{size_bytes / 1048576:.0f} MB"
+                    except:
+                        pass
+                
+                seeds = int(seed_matches[i]) if i < len(seed_matches) else 0
+                
+                results.append({
+                    'name': name,
+                    'magnet': magnet,
+                    'quality': _detect_quality(name),
+                    'size': size,
+                    'seeds': seeds,
+                    'source': 'RuTracker',
+                    'source_type': 'russian',
+                    'debrid': True
+                })
+                
+            except Exception as e:
+                xbmc.log(f"RuTracker topic error: {e}", xbmc.LOGWARNING)
+                continue
+        
+        xbmc.log(f"RuTracker found {len(results)} results", xbmc.LOGINFO)
+    except Exception as e:
+        xbmc.log(f"RuTracker error: {e}", xbmc.LOGWARNING)
+    
+    return results
+
+# ============== KINOZAL (Russian Movie Tracker) ==============
+
+def _search_kinozal(query):
+    """Search Kinozal.tv - Russian movie/TV tracker, requires login"""
+    results = []
+    
+    username = ADDON.getSetting('kinozal_username')
+    password = ADDON.getSetting('kinozal_password')
+    
+    if not username or not password:
+        xbmc.log("Kinozal: No credentials configured", xbmc.LOGINFO)
+        return results
+    
+    try:
+        import http.cookiejar
+        
+        cookie_jar = http.cookiejar.CookieJar()
+        opener = urllib.request.build_opener(
+            urllib.request.HTTPCookieProcessor(cookie_jar),
+            urllib.request.HTTPSHandler(context=SSL_CONTEXT)
+        )
+        
+        # Login
+        login_url = "https://kinozal.tv/takelogin.php"
+        login_data = urllib.parse.urlencode({
+            'username': username,
+            'password': password
+        }).encode('utf-8')
+        
+        login_req = urllib.request.Request(login_url, data=login_data, headers={
+            'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36',
+            'Content-Type': 'application/x-www-form-urlencoded',
+            'Referer': 'https://kinozal.tv/'
+        })
+        
+        opener.open(login_req, timeout=15)
+        
+        # Search
+        encoded_query = urllib.parse.quote(query)
+        search_url = f"https://kinozal.tv/browse.php?s={encoded_query}&g=0&c=0&v=0&d=0&w=0&t=0&f=0"
+        
+        search_req = urllib.request.Request(search_url, headers={
+            'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36'
+        })
+        
+        xbmc.log(f"Kinozal search: {query}", xbmc.LOGINFO)
+        
+        response = opener.open(search_req, timeout=20)
+        html = response.read().decode('windows-1251', errors='ignore')
+        
+        if not html:
+            return results
+        
+        # Parse results
+        row_pattern = r'<a[^>]*href="/details\.php\?id=(\d+)"[^>]*>([^<]+)</a>'
+        matches = re.findall(row_pattern, html)
+        
+        for topic_id, name in matches[:15]:
+            name = name.strip()
+            
+            try:
+                # Get magnet from details page
+                details_url = f"https://kinozal.tv/details.php?id={topic_id}"
+                details_req = urllib.request.Request(details_url, headers={
+                    'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36'
+                })
+                details_html = opener.open(details_req, timeout=10).read().decode('windows-1251', errors='ignore')
+                
+                # Extract info hash
+                hash_match = re.search(r'([a-fA-F0-9]{40})', details_html)
+                magnet_match = re.search(r'(magnet:\?xt=urn:btih:[^"\'<>\s]+)', details_html)
+                
+                if magnet_match:
+                    magnet = magnet_match.group(1)
+                elif hash_match:
+                    magnet = _create_magnet(hash_match.group(1), name)
+                else:
+                    continue
+                
+                results.append({
+                    'name': name,
+                    'magnet': magnet,
+                    'quality': _detect_quality(name),
+                    'size': '',
+                    'seeds': 0,
+                    'source': 'Kinozal',
+                    'source_type': 'russian',
+                    'debrid': True
+                })
+                
+            except Exception as e:
+                continue
+        
+        xbmc.log(f"Kinozal found {len(results)} results", xbmc.LOGINFO)
+    except Exception as e:
+        xbmc.log(f"Kinozal error: {e}", xbmc.LOGWARNING)
+    
+    return results
+
+# ============== NONAMECLUB (Russian Public Tracker) ==============
+
+def _search_nnmclub(query):
+    """Search NoNaMe Club - Russian torrent tracker"""
+    results = []
+    
+    try:
+        encoded_query = urllib.parse.quote(query)
+        url = f"https://nnmclub.to/forum/tracker.php?nm={encoded_query}"
+        
+        xbmc.log(f"NNM-Club search: {query}", xbmc.LOGINFO)
+        
+        html = _fetch_page(url, timeout=15)
+        
+        if not html:
+            return results
+        
+        magnet_pattern = r'(magnet:\?xt=urn:btih:[^"\'<>\s]+)'
+        magnets = re.findall(magnet_pattern, html, re.IGNORECASE)
+        
+        for magnet in magnets[:20]:
+            dn_match = re.search(r'dn=([^&]+)', magnet)
+            if dn_match:
+                name = urllib.parse.unquote_plus(dn_match.group(1))
+            else:
+                hash_match = re.search(r'btih:([a-fA-F0-9]{40})', magnet)
+                name = f"NNM-{hash_match.group(1)[:8]}" if hash_match else 'Unknown'
+            
+            results.append({
+                'name': name,
+                'magnet': magnet,
+                'quality': _detect_quality(name),
+                'size': '',
+                'seeds': 0,
+                'source': 'NNM-Club',
+                'source_type': 'russian',
+                'debrid': True
+            })
+        
+        xbmc.log(f"NNM-Club found {len(results)} results", xbmc.LOGINFO)
+    except Exception as e:
+        xbmc.log(f"NNM-Club error: {e}", xbmc.LOGWARNING)
+    
+    return results
+
+# ============== TORLOCK ==============
+
+def _search_torlock(query):
+    """Search Torlock torrent site"""
+    results = []
+    
+    try:
+        encoded_query = urllib.parse.quote_plus(query)
+        url = f"https://www.torlock.com/all/torrents/{encoded_query}.html"
+        
+        xbmc.log(f"Torlock search: {query}", xbmc.LOGINFO)
+        
+        html = _fetch_page(url, timeout=15)
+        
+        if not html:
+            return results
+        
+        # Extract torrent links with info hashes
+        # Torlock uses /torrent/ID/name.html format
+        link_pattern = r'<a[^>]*href="/torrent/(\d+)/([^"]+)"[^>]*>([^<]+)</a>'
+        matches = re.findall(link_pattern, html)
+        
+        search_lower = query.lower()
+        
+        for torrent_id, slug, name in matches[:20]:
+            name = name.strip()
+            if not any(w in name.lower() for w in search_lower.split()[:2]):
+                continue
+            
+            # Get magnet from torrent page
+            try:
+                torrent_url = f"https://www.torlock.com/torrent/{torrent_id}/{slug}"
+                torrent_html = _fetch_page(torrent_url, timeout=10)
+                if torrent_html:
+                    magnet_match = re.search(r'(magnet:\?xt=urn:btih:[^"\'<>\s]+)', torrent_html)
+                    if magnet_match:
+                        results.append({
+                            'name': name,
+                            'magnet': magnet_match.group(1),
+                            'quality': _detect_quality(name),
+                            'size': '',
+                            'seeds': 0,
+                            'source': 'Torlock',
+                            'source_type': 'coco',
+                            'debrid': True
+                        })
+            except:
+                continue
+        
+        # Fallback: directly extract magnets
+        if not results:
+            magnet_pattern = r'(magnet:\?xt=urn:btih:[^"\'<>\s]+)'
+            magnets = re.findall(magnet_pattern, html, re.IGNORECASE)
+            for magnet in magnets[:15]:
+                dn_match = re.search(r'dn=([^&]+)', magnet)
+                if dn_match:
+                    name = urllib.parse.unquote_plus(dn_match.group(1))
+                    if any(w in name.lower() for w in search_lower.split()[:2]):
+                        results.append({
+                            'name': name,
+                            'magnet': magnet,
+                            'quality': _detect_quality(name),
+                            'size': '',
+                            'seeds': 0,
+                            'source': 'Torlock',
+                            'source_type': 'coco',
+                            'debrid': True
+                        })
+        
+        xbmc.log(f"Torlock found {len(results)} results", xbmc.LOGINFO)
+    except Exception as e:
+        xbmc.log(f"Torlock error: {e}", xbmc.LOGWARNING)
+    
+    return results
+
+# ============== GLODLS / GLOTORRENTS ==============
+
+def _search_glodls(query):
+    """Search GloTorrents/GloDLS"""
+    results = []
+    
+    try:
+        encoded_query = urllib.parse.quote_plus(query)
+        url = f"https://glodls.to/search_results.php?search={encoded_query}&cat=0&incldead=0&inclexternal=0&lang=0&sort=seeders&order=desc"
+        
+        xbmc.log(f"GloDLS search: {query}", xbmc.LOGINFO)
+        
+        html = _fetch_page(url, timeout=15)
+        
+        if not html:
+            return results
+        
+        magnet_pattern = r'(magnet:\?xt=urn:btih:[^"\'<>\s]+)'
+        magnets = re.findall(magnet_pattern, html, re.IGNORECASE)
+        
+        search_lower = query.lower()
+        
+        for magnet in magnets[:20]:
+            dn_match = re.search(r'dn=([^&]+)', magnet)
+            if dn_match:
+                name = urllib.parse.unquote_plus(dn_match.group(1))
+            else:
+                continue
+            
+            if not any(w in name.lower() for w in search_lower.split()[:2]):
+                continue
+            
+            results.append({
+                'name': name,
+                'magnet': magnet,
+                'quality': _detect_quality(name),
+                'size': '',
+                'seeds': 0,
+                'source': 'GloDLS',
+                'source_type': 'coco',
+                'debrid': True
+            })
+        
+        xbmc.log(f"GloDLS found {len(results)} results", xbmc.LOGINFO)
+    except Exception as e:
+        xbmc.log(f"GloDLS error: {e}", xbmc.LOGWARNING)
+    
+    return results
+
+# ============== MAGNETDL ==============
+
+def _search_magnetdl(query):
+    """Search MagnetDL torrent aggregator"""
+    results = []
+    
+    try:
+        # MagnetDL uses first letter of query in URL
+        clean_query = query.strip().lower()
+        first_letter = clean_query[0] if clean_query else 'a'
+        encoded_query = clean_query.replace(' ', '-')
+        url = f"https://www.magnetdl.com/{first_letter}/{encoded_query}/"
+        
+        xbmc.log(f"MagnetDL search: {query}", xbmc.LOGINFO)
+        
+        html = _fetch_page(url, timeout=15)
+        
+        if not html:
+            return results
+        
+        magnet_pattern = r'(magnet:\?xt=urn:btih:[^"\'<>\s]+)'
+        magnets = re.findall(magnet_pattern, html, re.IGNORECASE)
+        
+        for magnet in magnets[:20]:
+            dn_match = re.search(r'dn=([^&]+)', magnet)
+            if dn_match:
+                name = urllib.parse.unquote_plus(dn_match.group(1))
+            else:
+                continue
+            
+            results.append({
+                'name': name,
+                'magnet': magnet,
+                'quality': _detect_quality(name),
+                'size': '',
+                'seeds': 0,
+                'source': 'MagnetDL',
+                'source_type': 'coco',
+                'debrid': True
+            })
+        
+        xbmc.log(f"MagnetDL found {len(results)} results", xbmc.LOGINFO)
+    except Exception as e:
+        xbmc.log(f"MagnetDL error: {e}", xbmc.LOGWARNING)
+    
+    return results
+
+# ============== KICKASS TORRENTS ==============
+
+def _search_kickass(query):
+    """Search KickAss Torrents mirrors"""
+    results = []
+    
+    mirrors = [
+        'https://kickasstorrents.to',
+        'https://katcr.to',
+        'https://kat.am',
+    ]
+    
+    for mirror in mirrors:
+        try:
+            encoded_query = urllib.parse.quote_plus(query)
+            url = f"{mirror}/usearch/{encoded_query}/"
+            
+            xbmc.log(f"KickAss search: {url}", xbmc.LOGINFO)
+            
+            html = _fetch_page(url, timeout=10)
+            
+            if not html:
+                continue
+            
+            magnet_pattern = r'(magnet:\?xt=urn:btih:[^"\'<>\s]+)'
+            magnets = re.findall(magnet_pattern, html, re.IGNORECASE)
+            
+            search_lower = query.lower()
+            
+            for magnet in magnets[:20]:
+                dn_match = re.search(r'dn=([^&]+)', magnet)
+                if dn_match:
+                    name = urllib.parse.unquote_plus(dn_match.group(1))
+                else:
+                    continue
+                
+                if not any(w in name.lower() for w in search_lower.split()[:2]):
+                    continue
+                
+                results.append({
+                    'name': name,
+                    'magnet': magnet,
+                    'quality': _detect_quality(name),
+                    'size': '',
+                    'seeds': 0,
+                    'source': 'KickAss',
+                    'source_type': 'coco',
+                    'debrid': True
+                })
+            
+            if results:
+                break
+                
+        except Exception as e:
+            xbmc.log(f"KickAss mirror error: {e}", xbmc.LOGWARNING)
+            continue
+    
+    xbmc.log(f"KickAss found {len(results)} results", xbmc.LOGINFO)
+    return results
+
+# ============== TORRSERVER INTEGRATION ==============
+
+def _search_torrserver(query):
+    """Search through TorrServer instance if configured"""
+    results = []
+    
+    server_url = ADDON.getSetting('torrserver_url')
+    if not server_url:
+        return results
+    
+    server_url = server_url.rstrip('/')
+    
+    try:
+        xbmc.log(f"TorrServer search: {query}", xbmc.LOGINFO)
+        
+        # TorrServer API - list torrents
+        list_url = f"{server_url}/torrents"
+        
+        post_data = json.dumps({
+            'action': 'list'
+        }).encode('utf-8')
+        
+        req = urllib.request.Request(list_url, data=post_data, headers={
+            'Content-Type': 'application/json',
+            'Accept': 'application/json',
+        })
+        
+        with urllib.request.urlopen(req, context=SSL_CONTEXT, timeout=10) as response:
+            data = json.loads(response.read().decode('utf-8'))
+        
+        if not data:
+            return results
+        
+        search_lower = query.lower()
+        
+        for torrent in data:
+            name = torrent.get('title', torrent.get('name', ''))
+            info_hash = torrent.get('hash', '')
+            
+            if not name or not info_hash:
+                continue
+            
+            if not any(w in name.lower() for w in search_lower.split()[:2]):
+                continue
+            
+            magnet = _create_magnet(info_hash, name)
+            
+            # TorrServer can stream directly
+            stream_url = f"{server_url}/stream?link={info_hash}&index=0&play"
+            
+            results.append({
+                'name': f"[TorrServer] {name}",
+                'magnet': magnet,
+                'stream_url': stream_url,
+                'quality': _detect_quality(name),
+                'size': '',
+                'seeds': 0,
+                'source': 'TorrServer',
+                'source_type': 'torrserver',
+                'debrid': False
+            })
+        
+        xbmc.log(f"TorrServer found {len(results)} results", xbmc.LOGINFO)
+    except Exception as e:
+        xbmc.log(f"TorrServer error: {e}", xbmc.LOGWARNING)
+    
+    return results
+
+def _torrserver_add_and_play(magnet_or_hash, server_url=None):
+    """Add a torrent to TorrServer and get stream URL"""
+    if not server_url:
+        server_url = ADDON.getSetting('torrserver_url')
+    
+    if not server_url:
+        return None
+    
+    server_url = server_url.rstrip('/')
+    
+    try:
+        # Add torrent to TorrServer
+        add_url = f"{server_url}/torrents"
+        
+        if magnet_or_hash.startswith('magnet:'):
+            link = magnet_or_hash
+        else:
+            link = f"magnet:?xt=urn:btih:{magnet_or_hash}"
+        
+        post_data = json.dumps({
+            'action': 'add',
+            'link': link,
+            'title': '',
+            'poster': '',
+            'save_to_db': False
+        }).encode('utf-8')
+        
+        req = urllib.request.Request(add_url, data=post_data, headers={
+            'Content-Type': 'application/json',
+        })
+        
+        with urllib.request.urlopen(req, context=SSL_CONTEXT, timeout=15) as response:
+            data = json.loads(response.read().decode('utf-8'))
+        
+        info_hash = data.get('hash', '')
+        if info_hash:
+            return f"{server_url}/stream?link={info_hash}&index=0&play"
+        
+    except Exception as e:
+        xbmc.log(f"TorrServer add error: {e}", xbmc.LOGWARNING)
+    
+    return None
+
 # ============== MAIN SEARCH FUNCTIONS ==============
 
 def get_imdb_from_tmdb(tmdb_id, media_type='movie'):
@@ -1396,7 +2073,7 @@ def search_movie(title, year='', tmdb_id=None, progress=None):
     # Also search Comet if IMDB is available (works in both modes)
     if imdb_id and ADDON.getSetting('comet_enabled') != 'false':
         if progress:
-            progress.update(80, "Searching Comet...")
+            progress.update(78, "Searching Comet...")
         comet_results = _search_comet(imdb_id, 'movie')
         for r in comet_results:
             hash_match = re.search(r'btih:([a-fA-F0-9]{40})', r.get('magnet', ''), re.IGNORECASE)
@@ -1406,9 +2083,115 @@ def search_movie(title, year='', tmdb_id=None, progress=None):
                     seen_hashes.add(h)
                     results.append(r)
     
+    # Russian torrent sites (work in both modes)
+    if ADDON.getSetting('rutor_enabled') != 'false':
+        if progress:
+            progress.update(80, "Searching Rutor...")
+        rutor_results = _search_rutor(search_query)
+        for r in rutor_results:
+            hash_match = re.search(r'btih:([a-fA-F0-9]{40})', r.get('magnet', ''), re.IGNORECASE)
+            if hash_match:
+                h = hash_match.group(1).upper()
+                if h not in seen_hashes:
+                    seen_hashes.add(h)
+                    results.append(r)
+    
+    if ADDON.getSetting('rutracker_enabled') != 'false':
+        if progress:
+            progress.update(82, "Searching RuTracker...")
+        rt_results = _search_rutracker(search_query)
+        for r in rt_results:
+            hash_match = re.search(r'btih:([a-fA-F0-9]{40})', r.get('magnet', ''), re.IGNORECASE)
+            if hash_match:
+                h = hash_match.group(1).upper()
+                if h not in seen_hashes:
+                    seen_hashes.add(h)
+                    results.append(r)
+    
+    if ADDON.getSetting('kinozal_enabled') != 'false':
+        if progress:
+            progress.update(83, "Searching Kinozal...")
+        kz_results = _search_kinozal(search_query)
+        for r in kz_results:
+            hash_match = re.search(r'btih:([a-fA-F0-9]{40})', r.get('magnet', ''), re.IGNORECASE)
+            if hash_match:
+                h = hash_match.group(1).upper()
+                if h not in seen_hashes:
+                    seen_hashes.add(h)
+                    results.append(r)
+    
+    if ADDON.getSetting('nnmclub_enabled') != 'false':
+        if progress:
+            progress.update(84, "Searching NNM-Club...")
+        nnm_results = _search_nnmclub(search_query)
+        for r in nnm_results:
+            hash_match = re.search(r'btih:([a-fA-F0-9]{40})', r.get('magnet', ''), re.IGNORECASE)
+            if hash_match:
+                h = hash_match.group(1).upper()
+                if h not in seen_hashes:
+                    seen_hashes.add(h)
+                    results.append(r)
+    
+    # Additional torrent sites (work in both modes)
+    if ADDON.getSetting('torlock_enabled') != 'false':
+        if progress:
+            progress.update(85, "Searching Torlock...")
+        tl_results = _search_torlock(search_query)
+        for r in tl_results:
+            hash_match = re.search(r'btih:([a-fA-F0-9]{40})', r.get('magnet', ''), re.IGNORECASE)
+            if hash_match:
+                h = hash_match.group(1).upper()
+                if h not in seen_hashes:
+                    seen_hashes.add(h)
+                    results.append(r)
+    
+    if ADDON.getSetting('glodls_enabled') != 'false':
+        if progress:
+            progress.update(86, "Searching GloDLS...")
+        gl_results = _search_glodls(search_query)
+        for r in gl_results:
+            hash_match = re.search(r'btih:([a-fA-F0-9]{40})', r.get('magnet', ''), re.IGNORECASE)
+            if hash_match:
+                h = hash_match.group(1).upper()
+                if h not in seen_hashes:
+                    seen_hashes.add(h)
+                    results.append(r)
+    
+    if ADDON.getSetting('magnetdl_enabled') != 'false':
+        if progress:
+            progress.update(87, "Searching MagnetDL...")
+        md_results = _search_magnetdl(search_query)
+        for r in md_results:
+            hash_match = re.search(r'btih:([a-fA-F0-9]{40})', r.get('magnet', ''), re.IGNORECASE)
+            if hash_match:
+                h = hash_match.group(1).upper()
+                if h not in seen_hashes:
+                    seen_hashes.add(h)
+                    results.append(r)
+    
+    if ADDON.getSetting('kickass_enabled') != 'false':
+        if progress:
+            progress.update(88, "Searching KickAss...")
+        ka_results = _search_kickass(search_query)
+        for r in ka_results:
+            hash_match = re.search(r'btih:([a-fA-F0-9]{40})', r.get('magnet', ''), re.IGNORECASE)
+            if hash_match:
+                h = hash_match.group(1).upper()
+                if h not in seen_hashes:
+                    seen_hashes.add(h)
+                    results.append(r)
+    
+    # TorrServer (local library search)
+    if ADDON.getSetting('torrserver_url'):
+        if progress:
+            progress.update(89, "Searching TorrServer...")
+        ts_results = _search_torrserver(search_query)
+        for r in ts_results:
+            results.append(r)
+    
     # Get magnets for results that need them (1337x)
     if progress:
-        progress.update(85, "Fetching magnet links...")
+        progress.update(90, "Fetching magnet links...")
     
     for r in results:
         if 'magnet' not in r and 'page_url' in r:
@@ -1655,7 +2438,7 @@ def search_episode(title, season, episode, tmdb_id=None, progress=None):
     # Also search Comet if IMDB is available (works in both modes)
     if imdb_id and ADDON.getSetting('comet_enabled') != 'false':
         if progress:
-            progress.update(80, "Searching Comet...")
+            progress.update(78, "Searching Comet...")
         comet_results = _search_comet(imdb_id, 'tv', season, episode)
         for r in comet_results:
             hash_match = re.search(r'btih:([a-fA-F0-9]{40})', r.get('magnet', ''), re.IGNORECASE)
@@ -1665,9 +2448,115 @@ def search_episode(title, season, episode, tmdb_id=None, progress=None):
                     seen_hashes.add(h)
                     results.append(r)
     
+    # Russian torrent sites (work in both modes)
+    if ADDON.getSetting('rutor_enabled') != 'false':
+        if progress:
+            progress.update(80, "Searching Rutor...")
+        rutor_results = _search_rutor(search_query)
+        for r in rutor_results:
+            hash_match = re.search(r'btih:([a-fA-F0-9]{40})', r.get('magnet', ''), re.IGNORECASE)
+            if hash_match:
+                h = hash_match.group(1).upper()
+                if h not in seen_hashes:
+                    seen_hashes.add(h)
+                    results.append(r)
+    
+    if ADDON.getSetting('rutracker_enabled') != 'false':
+        if progress:
+            progress.update(82, "Searching RuTracker...")
+        rt_results = _search_rutracker(search_query)
+        for r in rt_results:
+            hash_match = re.search(r'btih:([a-fA-F0-9]{40})', r.get('magnet', ''), re.IGNORECASE)
+            if hash_match:
+                h = hash_match.group(1).upper()
+                if h not in seen_hashes:
+                    seen_hashes.add(h)
+                    results.append(r)
+    
+    if ADDON.getSetting('kinozal_enabled') != 'false':
+        if progress:
+            progress.update(83, "Searching Kinozal...")
+        kz_results = _search_kinozal(search_query)
+        for r in kz_results:
+            hash_match = re.search(r'btih:([a-fA-F0-9]{40})', r.get('magnet', ''), re.IGNORECASE)
+            if hash_match:
+                h = hash_match.group(1).upper()
+                if h not in seen_hashes:
+                    seen_hashes.add(h)
+                    results.append(r)
+    
+    if ADDON.getSetting('nnmclub_enabled') != 'false':
+        if progress:
+            progress.update(84, "Searching NNM-Club...")
+        nnm_results = _search_nnmclub(search_query)
+        for r in nnm_results:
+            hash_match = re.search(r'btih:([a-fA-F0-9]{40})', r.get('magnet', ''), re.IGNORECASE)
+            if hash_match:
+                h = hash_match.group(1).upper()
+                if h not in seen_hashes:
+                    seen_hashes.add(h)
+                    results.append(r)
+    
+    # Additional torrent sites (work in both modes)
+    if ADDON.getSetting('torlock_enabled') != 'false':
+        if progress:
+            progress.update(85, "Searching Torlock...")
+        tl_results = _search_torlock(search_query)
+        for r in tl_results:
+            hash_match = re.search(r'btih:([a-fA-F0-9]{40})', r.get('magnet', ''), re.IGNORECASE)
+            if hash_match:
+                h = hash_match.group(1).upper()
+                if h not in seen_hashes:
+                    seen_hashes.add(h)
+                    results.append(r)
+    
+    if ADDON.getSetting('glodls_enabled') != 'false':
+        if progress:
+            progress.update(86, "Searching GloDLS...")
+        gl_results = _search_glodls(search_query)
+        for r in gl_results:
+            hash_match = re.search(r'btih:([a-fA-F0-9]{40})', r.get('magnet', ''), re.IGNORECASE)
+            if hash_match:
+                h = hash_match.group(1).upper()
+                if h not in seen_hashes:
+                    seen_hashes.add(h)
+                    results.append(r)
+    
+    if ADDON.getSetting('magnetdl_enabled') != 'false':
+        if progress:
+            progress.update(87, "Searching MagnetDL...")
+        md_results = _search_magnetdl(search_query)
+        for r in md_results:
+            hash_match = re.search(r'btih:([a-fA-F0-9]{40})', r.get('magnet', ''), re.IGNORECASE)
+            if hash_match:
+                h = hash_match.group(1).upper()
+                if h not in seen_hashes:
+                    seen_hashes.add(h)
+                    results.append(r)
+    
+    if ADDON.getSetting('kickass_enabled') != 'false':
+        if progress:
+            progress.update(88, "Searching KickAss...")
+        ka_results = _search_kickass(search_query)
+        for r in ka_results:
+            hash_match = re.search(r'btih:([a-fA-F0-9]{40})', r.get('magnet', ''), re.IGNORECASE)
+            if hash_match:
+                h = hash_match.group(1).upper()
+                if h not in seen_hashes:
+                    seen_hashes.add(h)
+                    results.append(r)
+    
+    # TorrServer (local library search)
+    if ADDON.getSetting('torrserver_url'):
+        if progress:
+            progress.update(89, "Searching TorrServer...")
+        ts_results = _search_torrserver(search_query)
+        for r in ts_results:
+            results.append(r)
+    
     # Get magnets for results that need them
     if progress:
-        progress.update(85, "Fetching magnet links...")
+        progress.update(90, "Fetching magnet links...")
     
     for r in results:
         if 'magnet' not in r and 'page_url' in r:

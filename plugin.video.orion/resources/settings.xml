@@ -20,6 +20,25 @@
         <setting id="coco_torrentdownloads" type="bool" label="Enable TorrentDownloads" default="true" visible="eq(-16,1)"/>
         <setting id="coco_rarbg" type="bool" label="Enable RARBG" default="true" visible="eq(-17,1)"/>
     </category>
+    <category label="Russian Trackers">
+        <setting id="rutor_enabled" type="bool" label="Enable Rutor (No Login)" default="true"/>
+        <setting id="nnmclub_enabled" type="bool" label="Enable NNM-Club (No Login)" default="true"/>
+        <setting id="rutracker_enabled" type="bool" label="Enable RuTracker (Login Required)" default="false"/>
+        <setting id="rutracker_username" type="text" label="RuTracker Username" default="" visible="eq(-1,true)"/>
+        <setting id="rutracker_password" type="text" label="RuTracker Password" default="" option="hidden" visible="eq(-2,true)"/>
+        <setting id="kinozal_enabled" type="bool" label="Enable Kinozal (Login Required)" default="false"/>
+        <setting id="kinozal_username" type="text" label="Kinozal Username" default="" visible="eq(-1,true)"/>
+        <setting id="kinozal_password" type="text" label="Kinozal Password" default="" option="hidden" visible="eq(-2,true)"/>
+    </category>
+    <category label="Extra Scrapers">
+        <setting id="torlock_enabled" type="bool" label="Enable Torlock" default="true"/>
+        <setting id="glodls_enabled" type="bool" label="Enable GloDLS/GloTorrents" default="true"/>
+        <setting id="magnetdl_enabled" type="bool" label="Enable MagnetDL" default="true"/>
+        <setting id="kickass_enabled" type="bool" label="Enable KickAss Torrents" default="true"/>
+    </category>
+    <category label="TorrServer">
+        <setting id="torrserver_url" type="text" label="TorrServer URL (e.g. http://192.168.1.100:8090)" default=""/>
+    </category>
     <category label="Orionoid">
         <setting id="orionoid_authorize" type="action" label="Authorize Orionoid" action="RunPlugin(plugin://plugin.video.orion/?action=pair_orionoid)"/>
         <setting id="orionoid_api_key" type="text" label="API Key" default=""/>
